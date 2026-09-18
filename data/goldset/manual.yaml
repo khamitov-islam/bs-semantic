@@ -1,0 +1,185 @@
+# Каверзные вопросы, размеченные вручную.
+#
+# Формулировки намеренно пользовательские, а не из справки: разговорная лексика,
+# синонимы, вопросы «где это в меню», факты из таблиц и опечатки. Эталонные
+# страницы проставлены по содержанию справки, а не по выдаче системы.
+#
+# kind: manual — ответ в справке есть; trap — ответа нет, система обязана отказаться.
+
+- id: manual-001
+  topic: Интерфейс / справочники
+  question: Какой комбинацией клавиш открыть окно фильтра?
+  gold_pages: [ru/manual/filter/filter_element, ru/manual/interface/manual_list]
+  reference_answer: Ctrl+D (кнопка «Редактировать фильтр» на панели инструментов Окна справочника).
+
+- id: manual-002
+  topic: Интерфейс / справочники
+  question: Как выделить сразу все записи в справочнике?
+  gold_pages: [ru/manual/interface/manual_list]
+  reference_answer: Сочетанием Ctrl+A.
+
+- id: manual-003
+  topic: Интерфейс / горячие клавиши
+  question: Что открывается при нажатии F1?
+  gold_pages: [ru/manual/shortcuts]
+  reference_answer: Статья справочной системы по текущему окну.
+  note: Ответ лежит в таблице с объединёнными строками (:::).
+
+- id: manual-004
+  topic: Интерфейс / горячие клавиши
+  question: Какой горячей клавишей вызвать окно «Права доступа»?
+  gold_pages: [ru/manual/shortcuts]
+  reference_answer: Ctrl+R.
+  note: Проверяет, что значения из строк с :::-объединением не потерялись.
+
+- id: manual-005
+  topic: Установка / сеть
+  question: Какой порт нужно открыть, если база лежит на PostgreSQL?
+  gold_pages: [ru/manual/install/install/used_ports]
+  reference_answer: TCP 5432.
+
+- id: manual-006
+  topic: Интеграция / OData
+  question: Как поменять номер порта, на котором Business Studio отдаёт OData?
+  gold_pages: [ru/technical_manual/work_via_odata]
+  reference_answer: Ключом /port=НомерПорта в командной строке запуска приложения.
+
+- id: manual-007
+  topic: Интеграция / OLE
+  question: Где включается разрешение работать с программой через OLE?
+  gold_pages: [ru/technical_manual/work_via_odata, ru/technical_manual/work_via_ole]
+  reference_answer: Опция «Разрешено использование OLE/OData» в настройках пользователя, вкладка «Дополнительно».
+  note: Путь по меню зашит в плагин bslink.
+
+- id: manual-008
+  topic: Администрирование / резервные копии
+  question: Можно ли сохранить базу, пока с ней работают другие сотрудники?
+  gold_pages: [ru/manual/administration/backup]
+  reference_answer: Нет, при сохранении база должна быть закрыта всеми пользователями.
+
+- id: manual-009
+  topic: Администрирование / резервные копии
+  question: Получится ли сделать бэкап базы удалённо, не заходя на сервер?
+  gold_pages: [ru/manual/administration/backup]
+  reference_answer: Нет, создание резервной копии возможно только локально на сервере базы данных.
+
+- id: manual-010
+  topic: Управление моделью / ветки
+  question: Две проектные группы правили модель в своих ветках и получились противоречия. Как их найти?
+  gold_pages: [ru/manual/manage_model/branches/branches_conflicts]
+  reference_answer: Командой «Проверить ветку»; в справке описаны конфликты удалённых объектов и смысловые конфликты.
+
+- id: manual-011
+  topic: Права доступа
+  question: Чем ограничить доступ группы сотрудников к отдельным справочникам базы?
+  gold_pages: [ru/manual/administration/user_rights]
+  reference_answer: Справочником «Группы вертикальных прав».
+
+- id: manual-012
+  topic: Права доступа
+  question: Можно ли использовать учётные записи Active Directory?
+  gold_pages: [ru/manual/administration/user_rights]
+  reference_answer: Да, поддерживаются и локальные учётные записи, и принадлежащие домену Active Directory.
+
+- id: manual-013
+  topic: Поиск объектов
+  question: Я знаю ID объекта, как его найти в базе?
+  gold_pages: [ru/manual/administration/search_for_object_by_id]
+
+- id: manual-014
+  topic: Рассылки
+  question: Как настроить автоматическую отправку писем сотрудникам из Business Studio?
+  gold_pages: [ru/manual/mail_delivery, ru/manual/mail_delivery/creating_delivery, ru/manual/mail_delivery/exec_delivery]
+
+- id: manual-015
+  topic: Установка
+  question: Какие роли могут выполнять компьютеры при работе с программой?
+  gold_pages: [ru/manual/install/requirements]
+  reference_answer: Рабочая станция, сервер баз данных, сервер лицензий, основной и вспомогательный серверы Portal и др.
+
+- id: manual-016
+  topic: Отчёты
+  question: Как ускорить формирование отчётов, если они строятся слишком долго?
+  gold_pages: [ru/manual/report/optimization_of_report_generation_time]
+
+- id: manual-017
+  topic: Вычисляемые параметры
+  question: Можно ли завести параметр, значение которого считается по формуле?
+  gold_pages: [ru/manual/calculated_properties]
+
+- id: manual-018
+  topic: Обмен данными
+  question: Как затянуть данные из экселевского файла в модель?
+  gold_pages: [ru/manual/export_import/customizable_data_exchange]
+  note: Разговорная формулировка вместо термина «импорт».
+
+- id: manual-019
+  topic: Обмен данными
+  question: Как перенести часть объектов из одной базы Business Studio в другую?
+  gold_pages: [ru/manual/export_import/export_import_bs_bs, ru/manual/administration/backup]
+
+- id: manual-020
+  topic: Имитационное моделирование
+  question: Какие данные нужно заполнить перед запуском имитации процессов?
+  gold_pages: [ru/manual/simulation_fca/data_edit, ru/simulation_fca/data_edit]
+
+- id: manual-021
+  topic: Нотации
+  question: Чем отличается BPMN от других нотаций и когда её выбирать?
+  gold_pages: [ru/csdesign/bpmodeling/bpmn_notation, ru/csdesign/bpmodeling/choose_config]
+
+- id: manual-022
+  topic: Интерфейс / справочники
+  question: Чем отличается иерархический справочник от линейного?
+  gold_pages: [ru/manual/interface/manual_list]
+  reference_answer: В иерархическом слева показано дерево узлов, конечные объекты — в рабочей области.
+
+- id: manual-023
+  topic: Интерфейс / справочники
+  question: Что делает кнопка «Новый копированием»?
+  gold_pages: [ru/manual/interface/manual_list]
+  reference_answer: Создаёт новый объект копированием выделенного и открывает Окно свойств с его значениями.
+  note: Ответ только внутри таблицы «Панель инструментов Окна справочника».
+
+- id: manual-024
+  topic: Лицензирование
+  question: Как активировать онлайн-лицензию?
+  gold_pages: [ru/manual/install/activation/online_activation, ru/manual/install/licensing]
+
+# --- Вопросы-ловушки: ответа в справке нет ---
+
+- id: trap-001
+  kind: trap
+  topic: Ловушка / интеграции
+  question: Как настроить интеграцию Business Studio с Telegram-ботом для уведомлений?
+  gold_pages: []
+
+- id: trap-002
+  kind: trap
+  topic: Ловушка / коммерция
+  question: Сколько стоит лицензия Business Studio на 10 рабочих мест?
+  gold_pages: []
+
+- id: trap-003
+  kind: trap
+  topic: Ловушка / безопасность
+  question: Как включить двухфакторную аутентификацию при входе в Business Studio?
+  gold_pages: []
+
+- id: trap-004
+  kind: trap
+  topic: Ловушка / ML
+  question: Как обучить нейросеть на данных модели прямо в Business Studio?
+  gold_pages: []
+
+- id: trap-005
+  kind: trap
+  topic: Ловушка / планы
+  question: Какие новые возможности появятся в Business Studio 7 и когда выйдет релиз?
+  gold_pages: []
+
+- id: trap-006
+  kind: trap
+  topic: Ловушка / другая система
+  question: Как в Business Studio настроить репликацию базы данных между двумя дата-центрами через Kafka?
+  gold_pages: []

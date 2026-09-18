@@ -1,0 +1,58 @@
+====== Настраиваемый обмен данными с другими системами ======
+
+В Business Studio есть возможность обмена данными с другими программами. Настройка правил обмена осуществляется с помощью справочников импорта, в меню администратора системы (см. [[ru/manual/administration|Администрирование системы]]) **Главное меню -> Администрирование** -> группа меню **Импорт/Экспорт** -> **Объекты импорта**. В справочнике "Пакеты импорта" можно создавать и редактировать объекты - пакеты импорта, которые описывают правила импорта/экспорта данных (Рис. 1).
+
+[{{ ru/manual/export_import/customizable_data_exchange/lang_customizable_data_exchange_1.png?nolink |Рисунок 1. Схема обмена данными с другими программами }}]
+
+Пакеты импорта предназначены для настройки правил обмена данными Business Studio с другими программами (их файлами), например MS Excel, MS Visio и др. 
+
+В системе присутствует встроенный механизм импорта (и экспорта) из файлов MS Excel, а также, благодаря системе плагинов, возможность импорта информации из файлов других типов, в том числе графической, например, из MS Visio.
+
+По умолчанию с Business Studio поставляются плагины (представляют собой DLL-библиотеки) для импорта из MS Visio и ARIS и настроенные для работы с ними пакеты импорта((Функционал доступен в Business Studio редакции Enterprise и выше)).
+
+Пользователям доступно написание своих плагинов на любом доступном языке программирования (подробнее об этом см. [[ru/technical_manual/import_plugin]]), и создание своих пакетов импорта для импорта информации из этих и других систем.
+
+Выбор источника данных (встроенный импорт из MS Excel и конкретный плагин) для генерации пакета импорта осуществляется в самом начале его создания, подробнее об этом см. [[ru/manual/export_import/customizable_data_exchange/import_package_setting/choose_datasourse]].
+
+Подробнее об импорте данных см. в [[ru/manual/export_import/customizable_data_exchange/import_package_setting/import_steps_description]], подробнее об импорте графических данных см. в [[ru/manual/export_import/customizable_data_exchange/import_package_setting/import_graphic_data]].
+
+Также возможен импорт и экспорт самих пакетов импорта с использованием встроенного пакета импорта "ИмпортИмпорта", подробнее об этом см. [[ru/manual/export_import/customizable_data_exchange/import_import_package]].
+
+== ==
+**Внимание!** Вместе с системой Business Studio поставляется набор готовых пакетов импорта, которые находятся в справочнике "Пакеты импорта" и готовые объекты в справочнике "Наборы соответствий фигур", которые пользователь может менять под свои потребности. 
+
+Если Вы планируете вносить в них изменения или использовать вместо них или вместе с ними свои пакеты импорта и/или наборы соответствий фигур, см. [[ru/manual/administration/change_and_use_default_data]].
+==== ====
+===== В этом подразделе =====
+
+  * [[ru/manual/export_import/customizable_data_exchange/import_package_setting]]
+  * [[ru/manual/export_import/customizable_data_exchange/import_execution]]
+  * [[ru/manual/export_import/customizable_data_exchange/export_import_package]]
+  * [[ru/manual/export_import/customizable_data_exchange/import_import_package]]
+  * [[ru/manual/export_import/customizable_data_exchange/import_from_visio]]
+  * [[ru/manual/export_import/customizable_data_exchange/import_from_aris]]     
+
+[<contextnavigator>]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

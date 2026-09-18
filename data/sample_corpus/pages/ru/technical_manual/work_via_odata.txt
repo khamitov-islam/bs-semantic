@@ -1,0 +1,81 @@
+====== Работа с данными через протокол OData ======
+**OData** (Open Data Protocol) — это открытый веб-протокол для получения, добавления, удаления и обновления данных. OData позволяет выполнять операции с данными с помощью HTTP-запросов и получать ответы в формате JSON (подробнее о веб-протоколе и запросах можно ознакомиться тут https://www.odata.org/getting-started/).
+Доступ к данным посредством OData можно использовать, например:
+  * для загрузки и выгрузки данных;
+  * для интеграции со сторонними информационными системами. 
+
+<html><iframe width="100%" height="467" src="https://youtube.com/embed/AWy9x4UG1Js" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe></html>
+\\
+
+**Посмотреть на  **  [[https://rutube.ru/video/7e5f3052d8a1171cec8634b7b2929339|{{ru/common/rutube.png?99*16}}]]
+===== Включение OData в Bussiness Studio =====
+Для включения OData в Bussiness Studio нужно включить опцию у пользователя, от которого будет запущено приложение, обслуживающее работу протокола. Настройка OData задается опцией «Разрешено использование OLE/OData» (**Главное меню - Настройки пользователя -** вкладка {{bslink>Дополнительно|ShowOnForm?cbdeb0a9-aa22-4b2b-937f-d43944be6632;c=017b5e1c-c557-4f97-bec6-2727c5c073d9,o=Tab}}).
+При включенной опции запущенная БС будет обслуживать запросы OData. Задать номер порта можно используя ключ /port=**НомерПорта** в командной строке запуска приложения. 
+===== Методы запроса =====
+== ==
+**Внимание!** Одновременно в Business Studio поддерживается работа одного запроса через OData. Если требуется одновременно выполнять несколько запросов - нужно запускать параллельно несколько Business Studio.
+
+В запросах используются системные названия справочников и параметров, которые можно посмотреть в Объектной модели в Business Studio или в MetaEdit.
+==== ====
+Метод запроса выбирается в зависимости от того, какая операция выполняется.
+
+Для тестирования команд можно использовать Postman (https://www.postman.com/).
+==== GET – получение данных ====
+Для get запросов можно использовать следующие параметры:
+$select, $expand, $filter, $orderby, $skip, $top, $apply.\\ Примеры:
+  - Получение списка объектов справочника «Физические лица» (здесь и далее в скобках указывается системное название, в данном случае - AppPlatform.Person): \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person]]
+  - Получение данных конкретного объекта из справочника «Физические лица» (AppPlatform.Person): \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person('0x00101400000000000000000000000000000000000000000000000000000001')]]
+  - Выбор нужных не объектных полей Название (Name) и Дата рождения (DateOfBirth) из справочника «Физические лица» (AppPlatform.Person): \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$select=Name,DateOfBirth]]
+  - Выбор нужных объектных полей из справочника «Физические лица» (AppPlatform.Person) Contacts: \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$expand=Contacts]]
+  - Установка фильтра, условие для поля Название (Name) справочника «Физические лица» (AppPlatform.Person): \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$filter=Name eq 'Бабич Ирина Петровна']]
+  - Комбинация условий, вложенные условия с конкретными значениями в поле Название (Name) (наличие сочетания букв 'евна'): \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$filter=(endswith(Name,'евна') or Name eq 'Бабич Ирина Петровна')and startswith(Name,'М')&$select=Name]]
+  - Фильтр Физических лиц (AppPlatform.Person) по дате рождения, рожденных не ранее 1970 года: \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$filter=DateOfBirth gt%201970-01-01T00:00:00Z&$select=Name,DateOfBirth]]
+  - Фильтр по перечислению контактов с типом Email: \\ [[http://localhost:9000/API/v1/OData/AppPlatform.PersonContact?$filter=ContactType/Category eq ns.AppPlatform.ContactCategories'Email']]
+  - Сортировка результатов запроса имен по убыванию: \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$orderby=Name desc]] \\ Поддерживается сортировка по числам, текстовым полям, датам.
+  - Если требуется пропустить две записи и выдать не более шести записей можно воспользоваться подобным запросом: \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$select=Name&$skip=2&$top=6]]
+  - Агрегация данных. \\ Сгруппировать Физические лица (AppPlatform.Person) по именам, вывести число физлиц с именем и сумму по полю Icon:  [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$apply=groupby((FirstName), aggregate($count as FNCount, Icon with sum as TotalIcon))]] \\ Сгруппировать физлица (AppPlatform.Person) по отчествам (Patronymic), оканчивающимся на "ович": \\ [[http://localhost:9000/API/v1/OData/AppPlatform.Person?$apply=filter(endswith(Patronymic,'ович'))/groupby((Patronymic), aggregate($count as FNCount, Icon with sum as TotalIcon))]]
+
+==== POST – создание данных ====
+Пример: 
+  - Добавление нового объекта «Иванов Иван Иванович» в справочник «Физические лица» (AppPlatform.Person): \\ POST %%http://localhost:9000/API/v1/OData/AppPlatform.Person%% \\ 
+В теле запроса в JSON указываются поля для заполнения нового объекта:
+[{{ ru/technical_manual/work_via_odata/lang_work_via_odata_01.png?nolink |Рисунок 1. В теле ответа возвращается созданный объект}}] \\
+  {"@odata.id":
+  "http://localhost:9000/API/v1/OData/AppPlatform.Person('0x0010140000000000000000000000000000000000000000000000000000003D')",
+  "ID": "0x0010140000000000000000000000000000000000000000000000000000003D",
+  "ID_Parent": "0x00101400000000000000000000000000000000000000000000000000000000",
+  "LastName": "Иванов",
+  "Name": "Иванов Иван Иванович",
+  "OwnerSID": "dwEFAAAAAAAFFQAAAO26+HsXMtOVLBHtYz4GAAA=",
+  "FirstName": "Иван",
+  "InternalAuditor": false,
+  "ACL": null,
+  "guid": "da3f29c0-1f0c-4eb3-becc-7a8d93a75746",
+  "Patronymic": "Иванович"
+  }
+
+==== PATCH – обновление данных ====
+Пример:
+  - Изменение наименования объекта (Name) на «Иванов Иван Александрович» в справочнике «Физические лица» (AppPlatform.Person) у ранее добавленного «Иванов Иван Иванович»: \\ PATCH %%http://localhost:9000/API/v1/OData/AppPlatform.Person%%('0x0010140000000000000000000000000000000000000000000000000000003D') \\ 
+В теле запроса в JSON указываются поля, которые нужно изменить в объекте.\\
+[{{ ru/technical_manual/work_via_odata/lang_work_via_odata_03.png?nolink }}]
+
+==== DELETE – удаление данных ====
+Пример:
+  - Удаление объекта физлица «Иванов Иван Александрович»: \\ DELETE %%http://localhost:9000/API/v1/OData/AppPlatform.Person('0x0010140000000000000000000000000000000000000000000000000000003D')%% \\ 
+[{{ ru/technical_manual/work_via_odata/lang_work_via_odata_05.png?nolink }}] \\
+В результате возвращается серверное сообщение «204 no content» и объект удаляется, либо появляется текст ошибки в теле ответа. 
+
+
+
+
+
+[<contextnavigator>]
+
+
+
+
+
+
+
+

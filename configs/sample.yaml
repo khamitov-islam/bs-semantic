@@ -1,0 +1,45 @@
+# Конфигурация для демо-выборки из репозитория (data/sample_corpus).
+# Нужна, чтобы проект можно было запустить без полного комплекта справки.
+
+corpus:
+  pages_dir: data/sample_corpus/pages
+  media_dir: data/sample_corpus/media
+  namespaces: ["ru"]
+  doc_url_template: "https://docs.business-studio.ru/doku.php/{page_id}"
+  min_chars: 120
+  drop_index_pages: false
+
+chunking:
+  strategy: header_recursive
+  chunk_size: 512
+  chunk_overlap_ratio: 0.15
+  table_mode: markdown
+  prepend_breadcrumb: true
+
+embedding:
+  model_name: intfloat/multilingual-e5-base
+  batch_size: 32
+  device: auto
+  normalize: true
+
+retrieval:
+  mode: hybrid
+  top_k: 5
+  candidates: 16
+  use_reranker: true
+  reranker_model: BAAI/bge-reranker-v2-m3
+
+generation:
+  model: qwen3:8b
+  base_url: http://localhost:11434
+  temperature: 0.1
+  num_ctx: 8192
+  max_tokens: 1024
+  think: false
+
+paths:
+  processed: data/processed_sample
+  index: data/index_sample
+  cache: data/cache
+  goldset: data/goldset
+  reports: reports

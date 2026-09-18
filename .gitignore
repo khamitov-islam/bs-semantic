@@ -1,0 +1,30 @@
+# Исходный корпус справки Business Studio (проприетарный, не публикуется)
+bs_6/
+data/raw/
+data/processed/
+data/processed_sample/
+data/index/
+data/index_sample/
+data/cache/
+# Генерируется командой `bsrag goldset`; размеченный вручную manual.yaml хранится в репозитории.
+data/goldset/goldset.jsonl
+
+# Артефакты экспериментов
+mlruns/
+.mlflow/
+mlflow.db
+*.ses
+*.duckdb
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
