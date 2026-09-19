@@ -62,7 +62,7 @@ uv run bsrag doctor
 uv run bsrag ingest                 # DokuWiki → Markdown
 uv run bsrag index                  # чанки + Qdrant
 uv run bsrag ask "Какой горячей клавишей вызвать окно Права доступа?"
-uv run bsrag ui                     # http://127.0.0.1:8501
+uv run bsrag ui                     # http://localhost:8501
 ```
 
 На выборке из репозитория:
@@ -77,7 +77,7 @@ uv run bsrag ask --config configs/sample.yaml "Как открыть окно ф
 
 ## Интерфейс
 
-`uv run bsrag ui` поднимает Streamlit на **http://127.0.0.1:8501** (не на IPv6 `::` — Safari на macOS иначе пишет, что не может подключиться). В сайдбаре переключатель **Бейслайн / Улучшенный**: бейслайн — `configs/baseline.yaml` и исходный индекс, улучшения его не затирают. Три страницы:
+`uv run bsrag ui` поднимает Streamlit на http://localhost:8501. В сайдбаре переключатель **Бейслайн / Улучшенный**: бейслайн — `configs/baseline.yaml` и исходный индекс, улучшения его не затирают. Три страницы:
 
 - **Поиск** — вопрос, ответ локальной LLM и цитаты с путём к файлу справки.
 - **Дашборд** — графики `reports/benchmarks.csv`: нарезка, эмбеддинги, схема поиска, LLM.
