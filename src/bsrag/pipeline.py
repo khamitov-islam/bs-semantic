@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Iterator
 
-from bsrag.chunking import Chunk, chunk_pages
+from bsrag.chunking import Chunk, chunk_pages, chunk_table_rows
 from bsrag.config import Settings, get_settings
 from bsrag.corpus import load_or_prepare_corpus, pages_file, prepare_corpus
 from bsrag.generation import Answer, generate, stream
@@ -41,6 +41,9 @@ def build(settings: Settings | None = None, pages: list[Page] | None = None) -> 
     pages = pages or load_or_prepare_corpus(settings)
     chunks = chunk_pages(pages, settings.chunking, settings.embedding.model_name)
     build_index(chunks, settings)
+    if settings.retrieval.table_index:
+        tables = chunk_table_rows(pages, settings.chunking, settings.embedding.model_name)
+        build_index(tables, settings, suffix="_tables")
     return chunks
 
 

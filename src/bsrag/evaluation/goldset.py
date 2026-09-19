@@ -183,11 +183,23 @@ def generate_auto_questions(
     return items
 
 
-def build_goldset(settings: Settings, n_auto: int = 60, console=None) -> Path:
+def build_goldset(
+    settings: Settings, n_auto: int = 60, keep_existing_auto: bool = True, console=None
+) -> Path:
+    """Собирает goldset.jsonl из manual.yaml и, по желанию, авто-вопросов.
+
+    ``n_auto=0`` не вызывает LLM. Если ``keep_existing_auto``, уже сгенерированные
+    auto-вопросы из предыдущего файла сохраняются — иначе расширение ручной
+    разметки каждый раз стоило бы десятки минут генерации.
+    """
     manual = load_manual(manual_path(settings))
-    auto = generate_auto_questions(settings, n_auto, console=console) if n_auto else []
-    goldset = GoldSet(manual + auto)
+    auto: list[QAItem] = []
     path = goldset_path(settings)
+    if n_auto:
+        auto = generate_auto_questions(settings, n_auto, console=console)
+    elif keep_existing_auto and path.exists():
+        auto = load_goldset(path).of_kind("auto")
+    goldset = GoldSet(manual + auto)
     save_goldset(goldset, path)
     if console:
         console.print(

@@ -3,8 +3,12 @@
 # Формулировки намеренно пользовательские, а не из справки: разговорная лексика,
 # синонимы, вопросы «где это в меню», факты из таблиц и опечатки. Эталонные
 # страницы проставлены по содержанию справки, а не по выдаче системы.
+# Не синтетика из чанка: вопрос писался после чтения страницы, эталон — страница,
+# а не тот чанк, из которого модель «угадывает» формулировку.
 #
 # kind: manual — ответ в справке есть; trap — ответа нет, система обязана отказаться.
+# Покрытие: интерфейс, установка, лицензии, портал, HTML, ССП, оргструктура,
+# нотации, отчёты, администрирование, ветки, имитация, СМК, риски, мультиязычность.
 
 - id: manual-001
   topic: Интерфейс / справочники
@@ -121,7 +125,7 @@
 - id: manual-020
   topic: Имитационное моделирование
   question: Какие данные нужно заполнить перед запуском имитации процессов?
-  gold_pages: [ru/manual/simulation_fca/data_edit, ru/simulation_fca/data_edit]
+  gold_pages: [ru/manual/simulation_fca/data_edit]
 
 - id: manual-021
   topic: Нотации
@@ -145,6 +149,318 @@
   topic: Лицензирование
   question: Как активировать онлайн-лицензию?
   gold_pages: [ru/manual/install/activation/online_activation, ru/manual/install/licensing]
+
+- id: manual-025
+  topic: Установка / сеть
+  question: На каком порту слушает сервер лицензий Business Studio?
+  gold_pages: [ru/manual/install/install/used_ports]
+  reference_answer: 5565 (служба BS_PingHost6).
+
+- id: manual-026
+  topic: Установка / сеть
+  question: Какой порт нужно открыть, чтобы браузеры открывали портал и локальную справку через Apache?
+  gold_pages: [ru/manual/install/install/used_ports]
+  reference_answer: 5558 (служба BS_WebService).
+
+- id: manual-027
+  topic: Лицензирование
+  question: Можно ли поставить программу на виртуальную машину и какой тип лицензии тогда нужен?
+  gold_pages: [ru/manual/install/internetwork/use_virtual_machines, ru/manual/install/activation/online_activation]
+  reference_answer: Да, и клиент, и сервер можно ставить на любую ВМ; активация только онлайн-лицензией.
+
+- id: manual-028
+  topic: Лицензирование
+  question: Чем конкурентная лицензия отличается от персональной?
+  gold_pages: [ru/manual/install/licensing]
+  reference_answer: Персональная привязана к рабочей станции; конкурентная лицензирует число одновременных подключений к серверу.
+
+- id: manual-029
+  topic: Лицензирование
+  question: Если на терминальном сервере персональная лицензия, сколько человек могут работать в программе одновременно?
+  gold_pages: [ru/manual/install/licensing]
+  reference_answer: Только один пользователь в каждый момент, даже если терминальных сеансов несколько.
+
+- id: manual-030
+  topic: Установка / сеть
+  question: Есть ли у Business Studio свой веб-интерфейс, чтобы зайти из браузера без установки клиента?
+  gold_pages: [ru/manual/install/internetwork/work_via_web]
+  reference_answer: Нет. Через браузер можно только обернуть клиент в Microsoft Remote Desktop Services / RemoteApp.
+
+- id: manual-031
+  topic: Установка / базы
+  question: Можно ли назвать новую базу «1sales», если имя должно начинаться с цифры?
+  gold_pages: [ru/manual/install/dbcontrol/create_new_db]
+  reference_answer: Нет. Имя не начинается с цифры, без спецсимволов; допустимы латиница, цифры и подчёркивание.
+
+- id: manual-032
+  topic: Установка / базы
+  question: Получится ли перенести базу с MS SQL на PostgreSQL, если она ещё пятой версии?
+  gold_pages: [ru/manual/install/dbcontrol/migration_db]
+  reference_answer: Нет. Миграция доступна только для баз 6.0 и выше, версии базы и программы должны совпадать.
+
+- id: manual-033
+  topic: Установка / базы
+  question: Куда лучше положить файл .db перед загрузкой базы, чтобы не упереться в права?
+  gold_pages: [ru/manual/install/dbcontrol/load_db_from_backup]
+  reference_answer: "В подпапку Backup каталога установки: для неё инсталлятор уже выставляет разрешения. Файл только с локального диска."
+
+- id: manual-034
+  topic: HTML-публикация
+  question: Можно ли выгрузить HTML-публикацию сразу в сетевую папку с русскими буквами в пути?
+  gold_pages: [ru/manual/html/formation]
+  reference_answer: Нет. Путь только локальный и без кириллицы; сетевые папки не поддерживаются.
+
+- id: manual-035
+  topic: HTML-публикация
+  question: Чем запускается HTML-публикация как сервер, чтобы коллеги открыли её по ссылке?
+  gold_pages: [ru/manual/html/work_description/run_html]
+  reference_answer: Файлом HTML-publication.exe из папки публикации (поднимает MySQL и Apache). Затем пункт «Опубликовать для общего доступа».
+
+- id: manual-036
+  topic: Портал
+  question: Какие лицензии нужны людям, чтобы они могли зайти на Business Studio Portal?
+  gold_pages: [ru/manual/portal/setting/assign_portal_users]
+  reference_answer: Пользовательские именные лицензии Business Studio Portal. Пользователь обязательно связан с физическим лицом.
+
+- id: manual-037
+  topic: Портал
+  question: Можно ли сидеть на портале под одним логином сразу с рабочего и с домашнего браузера?
+  gold_pages: [ru/manual/portal/work_description]
+  reference_answer: Нет, одна учётная запись — одно устройство. Если просто закрыть браузер, второй вход возможен через 15 минут.
+
+- id: manual-038
+  topic: Портал
+  question: Насколько долго может собираться портал на большой модели?
+  gold_pages: [ru/manual/portal/optimization_of_portal_generation_time]
+  reference_answer: Формирование может занять несколько суток — зависит от числа объектов, отчётов, пользователей и сложности прав.
+
+- id: manual-039
+  topic: ССП / Кокпит
+  question: Зачем нужен Cockpit, если уже есть полная Business Studio?
+  gold_pages: [ru/manual/install/versions, ru/manual/balanced_scorecard/cockpit]
+  reference_answer: Облегчённая редакция для массового ввода и просмотра значений показателей на нескольких рабочих местах.
+
+- id: manual-040
+  topic: Редакции
+  question: В какой редакции появляется мультиязычность?
+  gold_pages: [ru/manual/install/versions]
+  reference_answer: В Ultimate. Enterprise уже даёт жизненный цикл модели, СМК, имитацию, контроллинг и MetaEdit.
+
+- id: manual-041
+  topic: ССП
+  question: Как открыть только те показатели, фактические значения которых я сам должен вносить?
+  gold_pages: [ru/manual/balanced_scorecard/cockpit, ru/bsc/develop/collection_evaluation_analysis_cockpit]
+  reference_answer: Главное меню → ССП → Ввод значений показателей. Фильтр оставляет показатели, где пользователь — ответственный за ввод.
+
+- id: manual-042
+  topic: ССП
+  question: Где в навигаторе завести новый KPI, которым будем мерить цель?
+  gold_pages: [ru/bsc/develop/indicator_target]
+  reference_answer: Навигатор → Методы управления → Цели и показатели → Показатели.
+
+- id: manual-043
+  topic: Оргструктура
+  question: Чем функциональная оргмодель отличается от процессной?
+  gold_pages: [ru/csdesign/project_org_struct/org_model_concept]
+  reference_answer: Функциональная — «одно подразделение = одна функция»; процессная — «одно подразделение = один процесс».
+
+- id: manual-044
+  topic: Регламенты
+  question: От какого объекта в базе вызывается должностная инструкция?
+  gold_pages: [ru/csdesign/regulations/job_description]
+  reference_answer: От оргединицы с типом «Должность».
+
+- id: manual-045
+  topic: Нотации
+  question: Что такое контекстная диаграмма A-0 в IDEF0?
+  gold_pages: [ru/csdesign/bpmodeling/idef0]
+  reference_answer: "Самая верхняя диаграмма: один блок и граничные стрелки — граница модели с внешней средой."
+
+- id: manual-046
+  topic: Нотации
+  question: Для какого уровня процессов обычно берут нотацию EPC?
+  gold_pages: [ru/csdesign/bpmodeling/epc_notation, ru/csdesign/bpmodeling/choose_config]
+  reference_answer: "Для нижнего уровня: упорядоченная цепочка событий и функций. Наверху комплексной модели — IDEF0."
+
+- id: manual-047
+  topic: Моделирование
+  question: Как на диаграмме BPMN понять, что процесс уже декомпозирован?
+  gold_pages: [ru/manual/creating_model/decomposition]
+  reference_answer: У декомпозированного блока внизу символ «+». В IDEF0/EPC/flowchart недекомпозированный блок с косой чертой в левом верхнем углу.
+
+- id: manual-048
+  topic: Моделирование
+  question: Как на схеме IDEF0 отличить ссылку на типовой процесс от обычного блока?
+  gold_pages: [ru/manual/creating_model/typical_process]
+  reference_answer: Стрелка в правом верхнем углу блока. В BPMN у ссылки утолщена внешняя граница.
+
+- id: manual-049
+  topic: Моделирование
+  question: Можно ли под процессом BPMN сразу завести дочернюю функцию IDEF0?
+  gold_pages: [ru/manual/creating_model/process]
+  reference_answer: Нет. От BPMN допустимы только EPC, BPMN и ссылка.
+
+- id: manual-050
+  topic: Интерфейс
+  question: Откуда в программе вообще открывается окно диаграммы?
+  gold_pages: [ru/manual/interface/navigation]
+  reference_answer: "Только из Навигатора: кнопка панели или двойной щелчок по объекту с диаграммой. Закрыли Навигатор — закроется и диаграмма."
+
+- id: manual-051
+  topic: Интерфейс
+  question: Чем «Настройки пользователя» отличаются от «Настроек для всех пользователей»?
+  gold_pages: [ru/manual/interface/setting]
+  reference_answer: Первые — параметры текущего пользователя (язык, права, дата актуальности). Вторые — общие для всей базы (название организации, стили, портал, HTML).
+
+- id: manual-052
+  topic: Фильтры
+  question: В каком виде можно показать результат фильтра?
+  gold_pages: [ru/manual/filter/stored_filter]
+  reference_answer: Форма справочника, форма таблицы или форма шахматки.
+
+- id: manual-053
+  topic: Права доступа
+  question: Если человеку и разрешили, и запретили одно и то же горизонтальное право — что победит?
+  gold_pages: [ru/manual/administration/horizontal_right]
+  reference_answer: Запрет. Он старше разрешения, в том числе унаследованного.
+
+- id: manual-054
+  topic: Администрирование
+  question: Где посмотреть, кто менял объект и какие поля сдвинулись?
+  gold_pages: [ru/manual/administration/audit]
+  reference_answer: Журнал отслеживания изменений данных в меню администратора. Список изменённых параметров — через «Показать списки объекта».
+
+- id: manual-055
+  topic: Администрирование
+  question: Как окончательно вычистить из базы объекты с пометкой удаления?
+  gold_pages: [ru/manual/administration/work_with_deleted, ru/manual/administration/database_maintenance]
+  reference_answer: Обслуживание базы данных в меню администратора. Операция необратима; объекты со ссылками не удалятся.
+
+- id: manual-056
+  topic: Администрирование
+  question: Как найти все места, где на объект кто-то ссылается, прежде чем его удалить?
+  gold_pages: [ru/manual/administration/search_link]
+  reference_answer: "Функция «Анализ использования объекта»: ссылающиеся объекты, диаграммы и экземпляры в других ветках."
+
+- id: manual-057
+  topic: Администрирование
+  question: Каким ключом из командной строки запустить именно редакцию Enterprise?
+  gold_pages: [ru/manual/administration/cmd_line]
+  reference_answer: /enterprise (обязателен один из /enterprise, /professional, /ultimate, /cockpit).
+
+- id: manual-058
+  topic: Администрирование
+  question: Можно ли гонять обслуживание базы, пока в ней сидят пользователи?
+  gold_pages: [ru/manual/administration/database_maintenance]
+  reference_answer: Да, работу не блокирует. Процесс можно прервать и продолжить позже. Перед обслуживанием рекомендуют бэкап.
+
+- id: manual-059
+  topic: Управление моделью / ветки
+  question: Где создают новую ветку модели — в навигаторе или где-то ещё?
+  gold_pages: [ru/manual/manage_model/branches/branches_new]
+  reference_answer: "В окне управления ветками: из контекстного меню базы в окне выбора базы или Свойства подключения → Дополнительно."
+
+- id: manual-060
+  topic: Управление моделью / ветки
+  question: Почему «Применить ветку» ругается, хотя я в этой ветке работаю?
+  gold_pages: [ru/manual/manage_model/branches/branches_apply]
+  reference_answer: Ветка или родитель закрыта, либо снят флажок «Применяемая».
+
+- id: manual-061
+  topic: Управление моделью
+  question: Что значит статус версии объекта «Опубликована» и можно ли такой объект править?
+  gold_pages: [ru/manual/manage_model/object_versions]
+  reference_answer: Объект опубликован и обязателен к исполнению. По умолчанию править нельзя, пока не включить «Редактирование заблокированных объектов».
+
+- id: manual-062
+  topic: Портал / опросы
+  question: Зачем на портале опросы, если модель уже выгружена?
+  gold_pages: [ru/manual/manage_model/polls]
+  reference_answer: Согласовать изменения, провести тестовую эксплуатацию или ознакомить сотрудников «под подпись».
+
+- id: manual-063
+  topic: Совместная работа
+  question: Чем распределённый режим отличается от обычной работы по сети?
+  gold_pages: [ru/manual/cooperation/distributed, ru/manual/cooperation/network]
+  reference_answer: В сети все сидят на одной серверной базе. В распределённом — у каждого своя персональная лицензия, обмен кусками модели через экспорт/импорт файлов.
+
+- id: manual-064
+  topic: Отчёты
+  question: Чем шаблон отчёта объекта отличается от обычного шаблона отчёта?
+  gold_pages: [ru/manual/report/new_report/types_report]
+  reference_answer: Шаблон объекта вызывается от конкретного объекта (регламент процесса). Обычный шаблон даёт фиксированную выборку по всей базе, объект вызова не важен.
+
+- id: manual-065
+  topic: Отчёты
+  question: Можно ли во время пакетного формирования отчётов параллельно править документ в Word?
+  gold_pages: [ru/manual/report/packet_report]
+  reference_answer: "Нет. Word, Excel и Outlook лучше закрыть: пакет занимает Office и буфер обмена."
+
+- id: manual-066
+  topic: СМК
+  question: Что такое ПЧР на диаграмме Исикавы и из чего оно считается?
+  gold_pages: [ru/manual/qms/ishikawa_diagram]
+  reference_answer: "Приоритетное число риска: произведение рангов значимости, возникновения и обнаружения."
+
+- id: manual-067
+  topic: Риски
+  question: Для чего в программе матрица рисков, а не просто список?
+  gold_pages: [ru/manual/risk_management/risk_matrix]
+  reference_answer: Чтобы визуально сравнить оценки и выбрать риски, на которые сначала тратить ресурсы. Строится по шаблону со шкалами вероятности и влияния.
+
+- id: manual-068
+  topic: Мультиязычность
+  question: Нужно ли перезапускать программу, если переключил язык интерфейса?
+  gold_pages: [ru/manual/multilingual_module/current_interface_language]
+  reference_answer: Да. Язык интерфейса — в Настройках пользователя на вкладке «Языки», затем перезапуск.
+
+- id: manual-069
+  topic: Мультиязычность
+  question: Что увижу в навигаторе, если у названия процесса нет перевода на текущий язык данных?
+  gold_pages: [ru/manual/multilingual_module/current_data_language]
+  reference_answer: Значение на основном языке базы. Если и его нет — пусто, даже когда заполнены другие языки.
+
+- id: manual-070
+  topic: Имитационное моделирование
+  question: Чем автоматическая имитация отличается от пошаговой?
+  gold_pages: [ru/manual/simulation_fca/simulation/imitations, ru/manual/simulation_fca/simulation/imitation_window]
+  reference_answer: Оба открывают окно «Ход имитации», но пошаговая подсвечивает токены на диаграмме. Повторный запуск стирает прошлые результаты.
+
+- id: manual-071
+  topic: Лицензирование
+  question: К каким хостам должен ходить компьютер с онлайн-лицензией и по каким портам?
+  gold_pages: [ru/manual/install/activation/online_activation]
+  reference_answer: ls.businessstudio.ru и ls2.businessstudio.ru, HTTP на 80, 443 или 5550. Лучше FQDN, не IP.
+
+- id: manual-072
+  topic: Интерфейс / горячие клавиши
+  question: Какой комбинацией открыть свойства объекта из навигатора, не лезя в меню?
+  gold_pages: [ru/manual/shortcuts]
+  reference_answer: Ctrl+E.
+
+- id: manual-073
+  topic: Интерфейс / горячие клавиши
+  question: Чем Shift+F1 отличается от обычного F1?
+  gold_pages: [ru/manual/shortcuts]
+  reference_answer: F1 открывает справку, Shift+F1 — окно объектной модели на выделенном параметре класса.
+
+- id: manual-074
+  topic: Интерфейс / горячие клавиши
+  question: Как из навигатора добавить объект не рядом, а как потомка выделенного?
+  gold_pages: [ru/manual/shortcuts, ru/manual/creating_model/process]
+  reference_answer: Shift+Ins (обычный Ins добавляет на тот же уровень).
+
+- id: manual-075
+  topic: Администрирование
+  question: Где открыть журнал ошибок приложения, если конвертация или переназначение ссылок упали?
+  gold_pages: [ru/manual/administration/event_log]
+  reference_answer: Справочники → Все справочники → Самостоятельные объекты → Администрирование → Журнал событий приложения, либо то же в меню администратора.
+
+- id: manual-076
+  topic: ССП
+  question: Из чего вообще состоит сбалансированная система показателей в программе?
+  gold_pages: [ru/manual/balanced_scorecard/balanced_scorecard]
+  reference_answer: Перспективы стратегической карты, цели, показатели и сами стратегические карты.
 
 # --- Вопросы-ловушки: ответа в справке нет ---
 
@@ -182,4 +498,40 @@
   kind: trap
   topic: Ловушка / другая система
   question: Как в Business Studio настроить репликацию базы данных между двумя дата-центрами через Kafka?
+  gold_pages: []
+
+- id: trap-007
+  kind: trap
+  topic: Ловушка / интеграции
+  question: Как подключить Slack, чтобы в канал падали уведомления об изменении регламента?
+  gold_pages: []
+
+- id: trap-008
+  kind: trap
+  topic: Ловушка / платформы
+  question: Есть ли официальное приложение Business Studio для iPhone?
+  gold_pages: []
+
+- id: trap-009
+  kind: trap
+  topic: Ловушка / безопасность
+  question: Как настроить вход в программу через Keycloak по SAML?
+  gold_pages: []
+
+- id: trap-010
+  kind: trap
+  topic: Ловушка / коммерция
+  question: Сколько стоит годовая подписка на именные лицензии Portal?
+  gold_pages: []
+
+- id: trap-011
+  kind: trap
+  topic: Ловушка / другая система
+  question: Как выгрузить модель процессов из Business Studio прямо в Camunda?
+  gold_pages: []
+
+- id: trap-012
+  kind: trap
+  topic: Ловушка / инфраструктура
+  question: Есть ли готовый Helm-чарт, чтобы развернуть Business Studio в Kubernetes?
   gold_pages: []

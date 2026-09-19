@@ -190,21 +190,24 @@ def chat(config: Optional[str] = ConfigOption) -> None:
 
 @app.command()
 def goldset(
-    n_auto: int = typer.Option(60, help="Сколько вопросов сгенерировать локальной LLM."),
+    n_auto: int = typer.Option(60, help="Сколько вопросов сгенерировать локальной LLM. 0 — только пересобрать из YAML."),
     llm: Optional[str] = typer.Option(None, help="Модель-генератор вопросов."),
     config: Optional[str] = ConfigOption,
 ) -> None:
-    """Сгенерировать синтетические вопросы и собрать общий золотой набор."""
+    """Собрать золотой набор: ручная YAML-разметка плюс синтетические вопросы."""
     from bsrag.evaluation.goldset import build_goldset
 
     settings = _settings(config, **_overrides(generation__model=llm))
-    path = build_goldset(settings, n_auto=n_auto, console=console)
+    path = build_goldset(settings, n_auto=n_auto, keep_existing_auto=True, console=console)
     console.print(f"Золотой набор сохранён: [cyan]{path}[/]")
 
 
 @app.command()
 def bench(
-    stage: str = typer.Argument("all", help="chunking | embeddings | retrieval | llm | all"),
+    stage: str = typer.Argument(
+        "all",
+        help="chunking | embeddings | retrieval | llm | ablations | improve | warmup | goldset_expand | all",
+    ),
     config: Optional[str] = ConfigOption,
     limit: Optional[int] = typer.Option(None, help="Ограничить число вопросов (для отладки)."),
 ) -> None:
@@ -221,7 +224,20 @@ def ui(port: int = typer.Option(8501), config: Optional[str] = ConfigOption) -> 
     app_path = PROJECT_ROOT / "app" / "Поиск.py"
     env_config = ["--", "--config", config] if config else []
     subprocess.run(
-        [sys.executable, "-m", "streamlit", "run", str(app_path), "--server.port", str(port)]
+        [
+            sys.executable,
+            "-m",
+            "streamlit",
+            "run",
+            str(app_path),
+            "--server.port",
+            str(port),
+            # Safari на macOS не открывает Streamlit, если он слушает только IPv6 (::).
+            "--server.address",
+            "127.0.0.1",
+            "--server.headless",
+            "true",
+        ]
         + env_config,
         cwd=PROJECT_ROOT,
         check=False,

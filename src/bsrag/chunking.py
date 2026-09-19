@@ -243,3 +243,73 @@ def chunk_pages(
     pages: Iterable[Page], config: ChunkingConfig, tokenizer_model: str | None = None
 ) -> list[Chunk]:
     return Chunker(config, tokenizer_model).split(pages)
+
+
+def _cells(line: str) -> list[str]:
+    body = line.strip()
+    if body.startswith("|"):
+        body = body[1:]
+    if body.endswith("|"):
+        body = body[:-1]
+    return [cell.strip() for cell in body.split("|")]
+
+
+def iter_markdown_tables(markdown: str) -> list[tuple[str, list[str], list[list[str]]]]:
+    """Таблицы markdown вместе с путём заголовков над ними."""
+    headings: list[tuple[int, str]] = []
+    tables: list[tuple[str, list[str], list[list[str]]]] = []
+    lines = markdown.splitlines()
+    i = 0
+    while i < len(lines):
+        heading = re.match(r"^(#{1,4})\s+(.*)$", lines[i])
+        if heading:
+            level = len(heading.group(1))
+            headings = [item for item in headings if item[0] < level]
+            headings.append((level, heading.group(2).strip()))
+            i += 1
+            continue
+        if i + 1 < len(lines) and _RE_TABLE_ROW.match(lines[i]) and _RE_TABLE_SEP.match(lines[i + 1]):
+            header = _cells(lines[i])
+            i += 2
+            rows: list[list[str]] = []
+            while i < len(lines) and _RE_TABLE_ROW.match(lines[i]) and not _RE_TABLE_SEP.match(lines[i]):
+                rows.append(_cells(lines[i]))
+                i += 1
+            path = " > ".join(title for _, title in headings)
+            tables.append((path, header, rows))
+            continue
+        i += 1
+    return tables
+
+
+def chunk_table_rows(
+    pages: Iterable[Page], config: ChunkingConfig, tokenizer_model: str | None = None
+) -> list[Chunk]:
+    """Одна строка таблицы — один чанк: «Клавиша: Ctrl+R; Действие: …».
+
+    Основной индекс остаётся header-aware markdown. Сюда попадают только строки
+    таблиц, чтобы BM25 видел короткие токены целиком.
+    """
+    chunker = Chunker(config, tokenizer_model)
+    chunks: list[Chunk] = []
+    for page in pages:
+        for headings, header, rows in iter_markdown_tables(page.markdown):
+            for row in rows:
+                pairs = [
+                    f"{header[j]}: {cell}" if j < len(header) and header[j] else cell
+                    for j, cell in enumerate(row)
+                    if cell
+                ]
+                if not pairs:
+                    continue
+                text = "- " + "; ".join(pairs)
+                chunks.append(
+                    chunker._make_chunk(
+                        page=page,
+                        text=text,
+                        headings=headings,
+                        index=len(chunks),
+                        parent="",
+                    )
+                )
+    return chunks

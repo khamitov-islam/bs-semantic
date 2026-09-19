@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from dataclasses import dataclass
 from functools import lru_cache
@@ -12,6 +13,72 @@ from bsrag.chunking import Chunk
 from bsrag.config import Settings
 from bsrag.embeddings import resolve_device
 from bsrag.index import document_to_chunk, open_index
+
+# Короткие подсказки лексики справки. Не LLM: не добавляют секунд к первому ответу.
+_QUERY_HINTS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"включа|настроит|где .*опц|как включ", re.I), "опция настройка пункт меню"),
+    (re.compile(r"клавиш|ctrl\+|shift\+|alt\+|сочетани", re.I), "горячая клавиша сочетание клавиш"),
+    (re.compile(r"прав[ао].*доступ|доступ.*пользовател", re.I), "окно Права доступа пользователи"),
+    (re.compile(r"ветк|основн(ую|ой) модел|перенес", re.I), "слияние ветка основная модель"),
+    (re.compile(r"\bole\b|\bodata\b", re.I), "OLE OData протокол"),
+]
+
+
+def expand_queries(question: str) -> list[str]:
+    """Исходный вопрос плюс одна-две формулировки языком справки."""
+    variants = [question]
+    seen = {question.casefold()}
+    for pattern, hint in _QUERY_HINTS:
+        if pattern.search(question):
+            extra = f"{question} {hint}"
+            key = extra.casefold()
+            if key not in seen:
+                variants.append(extra)
+                seen.add(key)
+    return variants[:3]
+
+
+def rrf_merge(ranked: list[list[Hit]], k: int = 60) -> list[Hit]:
+    """Сливает несколько списков кандидатов по Reciprocal Rank Fusion."""
+    return weighted_rrf([(hits, 1.0) for hits in ranked], k=k)
+
+
+def weighted_rrf(ranked: list[tuple[list[Hit], float]], k: int = 60) -> list[Hit]:
+    """RRF с весом канала: короткие запросы усиливают BM25, длинные — вектор."""
+    scores: dict[str, float] = {}
+    best: dict[str, Hit] = {}
+    for hits, weight in ranked:
+        if not hits or weight <= 0:
+            continue
+        for rank, hit in enumerate(hits):
+            cid = hit.chunk.chunk_id
+            scores[cid] = scores.get(cid, 0.0) + weight / (k + rank + 1)
+            stored = best.get(cid)
+            if stored is None or (hit.retriever_score or 0) >= (stored.retriever_score or 0):
+                best[cid] = hit
+    ordered = sorted(best.values(), key=lambda h: scores[h.chunk.chunk_id], reverse=True)
+    for hit in ordered:
+        fused = scores[hit.chunk.chunk_id]
+        hit.retriever_score = fused
+        hit.score = fused
+    return ordered
+
+
+_LEXICAL_QUERY = re.compile(
+    r"\b(ctrl|alt|shift|ins|del|esc|tab|enter|f\d{1,2})\b|\b\d{3,5}\b|клавиш|сочетани|горяч",
+    re.I,
+)
+
+
+def is_lexical_query(question: str) -> bool:
+    return bool(_LEXICAL_QUERY.search(question))
+
+
+def fusion_weights(question: str) -> dict[str, float]:
+    """Веса не учатся на goldset: эвристика по виду запроса."""
+    if is_lexical_query(question):
+        return {"dense": 0.5, "sparse": 2.0, "tables": 2.5}
+    return {"dense": 2.0, "sparse": 0.5, "tables": 1.0}
 
 
 @dataclass
@@ -58,16 +125,24 @@ def get_reranker(model_name: str, device: str = "auto"):
 
 
 class Retriever:
-    """Достаёт кандидатов из Qdrant и при необходимости переупорядочивает их.
+    """Достаёт кандидатов и при необходимости переупорядочивает их.
 
-    Гибридный поиск берёт широкий пул кандидатов (dense + BM25, слияние RRF),
-    а кросс-энкодер уже прицельно сортирует их по релевантности запросу.
+    Базовый путь — hybrid RRF Qdrant. При ``weighted_fusion`` / ``table_index``
+    dense, BM25 и строки таблиц ищутся раздельно и сливаются с весами по запросу.
     """
 
     def __init__(self, settings: Settings, store: QdrantVectorStore | None = None) -> None:
         self.settings = settings
         self.store = store or open_index(settings)
         self._reranker = None
+        self._dense = None
+        self._sparse = None
+        self._tables = None
+        if settings.retrieval.weighted_fusion:
+            self._dense = open_index(settings, mode="dense")
+            self._sparse = open_index(settings, mode="sparse")
+        if settings.retrieval.table_index:
+            self._tables = open_index(settings, suffix="_tables", mode="hybrid")
 
     @property
     def reranker(self):
@@ -78,7 +153,20 @@ class Retriever:
         return self._reranker
 
     def warmup(self) -> None:
-        self.search("проверка готовности системы", top_k=1)
+        if self.settings.retrieval.use_reranker:
+            _ = self.reranker
+        self.search("проверка готовности системы", top_k=1, use_reranker=self.settings.retrieval.use_reranker)
+
+    def _search_store(self, store: QdrantVectorStore, query: str, candidates: int) -> list[Hit]:
+        scored = store.similarity_search_with_score(query, k=candidates)
+        return [
+            Hit(chunk=document_to_chunk(doc), score=float(score), rank=i, retriever_score=float(score))
+            for i, (doc, score) in enumerate(scored)
+        ]
+
+    def _channel(self, store: QdrantVectorStore, variants: list[str], candidates: int) -> list[Hit]:
+        lists = [self._search_store(store, variant, candidates) for variant in variants]
+        return rrf_merge(lists, k=self.settings.retrieval.rrf_k) if len(lists) > 1 else lists[0]
 
     def search(
         self,
@@ -86,26 +174,32 @@ class Retriever:
         top_k: int | None = None,
         candidates: int | None = None,
         use_reranker: bool | None = None,
+        query_expand: bool | None = None,
     ) -> SearchResult:
         cfg = self.settings.retrieval
         top_k = top_k or cfg.top_k
         use_reranker = cfg.use_reranker if use_reranker is None else use_reranker
+        query_expand = cfg.query_expand if query_expand is None else query_expand
         candidates = candidates or (cfg.candidates if use_reranker else top_k)
         candidates = max(candidates, top_k)
 
+        variants = expand_queries(query) if query_expand else [query]
         started = time.perf_counter()
-        scored = self.store.similarity_search_with_score(query, k=candidates)
+        if cfg.weighted_fusion or cfg.table_index:
+            hits = self._fused_search(query, variants, candidates)
+        elif len(variants) == 1:
+            hits = self._search_store(self.store, variants[0], candidates)
+        else:
+            hits = rrf_merge(
+                [self._search_store(self.store, variant, candidates) for variant in variants],
+                k=cfg.rrf_k,
+            )
         retrieval_ms = (time.perf_counter() - started) * 1000
-
-        hits = [
-            Hit(chunk=document_to_chunk(doc), score=float(score), rank=i, retriever_score=float(score))
-            for i, (doc, score) in enumerate(scored)
-        ]
 
         rerank_ms = 0.0
         if use_reranker and hits:
             started = time.perf_counter()
-            hits = self._rerank(query, hits)
+            hits = self._rerank(query, hits[:candidates])
             rerank_ms = (time.perf_counter() - started) * 1000
 
         hits = hits[:top_k]
@@ -115,6 +209,23 @@ class Retriever:
             hit.rank = i
 
         return SearchResult(query=query, hits=hits, retrieval_ms=retrieval_ms, rerank_ms=rerank_ms)
+
+    def _fused_search(self, query: str, variants: list[str], candidates: int) -> list[Hit]:
+        cfg = self.settings.retrieval
+        weights = (
+            fusion_weights(query)
+            if cfg.weighted_fusion
+            else {"dense": 1.0, "sparse": 1.0, "tables": 1.0}
+        )
+        channels: list[tuple[list[Hit], float]] = []
+        if cfg.weighted_fusion:
+            channels.append((self._channel(self._dense, variants, candidates), weights["dense"]))
+            channels.append((self._channel(self._sparse, variants, candidates), weights["sparse"]))
+        else:
+            channels.append((self._channel(self.store, variants, candidates), 1.0))
+        if self._tables is not None:
+            channels.append((self._channel(self._tables, variants, candidates), weights["tables"]))
+        return weighted_rrf(channels, k=cfg.rrf_k)
 
     def _rerank(self, query: str, hits: list[Hit]) -> list[Hit]:
         pairs = [(query, hit.chunk.embed_text) for hit in hits]

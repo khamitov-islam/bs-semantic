@@ -8,7 +8,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from common import get_settings
+from common import get_settings, selected_profile
 
 st.set_page_config(page_title="Дашборд экспериментов", page_icon="📊", layout="wide")
 
@@ -28,9 +28,9 @@ def load_results(path: str, mtime: float) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-def results_frame() -> pd.DataFrame | None:
-    settings = get_settings()
-    path = settings.resolve(settings.paths.reports) / "benchmarks.csv"
+def results_frame(filename: str = "benchmarks.csv") -> pd.DataFrame | None:
+    settings = get_settings("improved")
+    path = settings.resolve(settings.paths.reports) / filename
     if not path.exists():
         return None
     return load_results(str(path), path.stat().st_mtime)
@@ -72,24 +72,37 @@ def section_chunking(frame: pd.DataFrame, metric: str) -> None:
         )
 
     if "ablation" in data.columns and data["ablation"].notna().any():
-        ablations = data[data["ablation"].notna()][["name", metric]].copy()
+        cols = [c for c in ("name", metric, "n_chunks", "collection") if c in data.columns]
+        ablations = data[data["ablation"].notna()][cols].copy()
         baseline = grid[metric].max() if not grid.empty else None
         chart = px.bar(
             ablations.sort_values(metric),
             x=metric,
             y="name",
             orientation="h",
+            text="n_chunks" if "n_chunks" in ablations.columns else None,
             labels={"name": "", metric: METRIC_LABELS.get(metric, metric)},
-            title="Что будет, если сделать иначе",
+            title="Что будет, если сделать иначе (подпись — число чанков)",
         )
         if baseline is not None:
             chart.add_vline(
                 x=baseline,
                 line_dash="dash",
-                annotation_text="лучшая конфигурация",
+                annotation_text="лучшая конфигурация сетки",
                 line_color="green",
             )
         st.plotly_chart(chart, use_container_width=True)
+        st.caption(
+            "parent-document не меняет текст эмбеддера — только контекст для LLM, "
+            "поэтому retrieval-метрики совпадают с header-aware. "
+            "no breadcrumbs и tables-as-rows считаются на отдельных коллекциях."
+        )
+        if "collection" in ablations.columns:
+            st.dataframe(
+                ablations.rename(columns={metric: METRIC_LABELS.get(metric, metric)}),
+                use_container_width=True,
+                hide_index=True,
+            )
 
 
 def section_embeddings(frame: pd.DataFrame, metric: str) -> None:
@@ -203,7 +216,137 @@ def section_llm(frame: pd.DataFrame) -> None:
         )
 
 
+def section_improve(frame: pd.DataFrame, metric: str) -> None:
+    data = frame[frame.stage == "improve"]
+    if data.empty:
+        return
+    st.subheader("Этап E. Улучшения поверх бейслайна")
+    st.caption(
+        "Тот же индекс USER-bge-m3. Меняются только формулировка запроса и ширина "
+        "пула до реранкера — это можно выключить, переключив профиль на бейслайн."
+    )
+    left, right = st.columns(2)
+    left.plotly_chart(
+        px.bar(
+            data.sort_values(metric),
+            x=metric,
+            y="name",
+            orientation="h",
+            labels={"name": "", metric: METRIC_LABELS.get(metric, metric)},
+            title="Качество поиска",
+        ),
+        use_container_width=True,
+    )
+    if "latency_p50_ms" in data.columns:
+        right.plotly_chart(
+            px.bar(
+                data.sort_values("latency_p50_ms"),
+                x="latency_p50_ms",
+                y="name",
+                orientation="h",
+                labels={"name": "", "latency_p50_ms": "Задержка (медиана), мс"},
+                title="Задержка",
+            ),
+            use_container_width=True,
+        )
+
+
+def section_goldset_expand(frame: pd.DataFrame, metric: str) -> None:
+    data = frame[frame.stage == "goldset_expand"]
+    if data.empty:
+        return
+    n_manual = int(data["n_manual"].dropna().max()) if "n_manual" in data.columns else 0
+    st.subheader("Расширенный ручной goldset")
+    st.caption(
+        f"Только каверзные вопросы ({n_manual or 'все ручные'}), без синтетики из чанков. "
+        "Один и тот же набор для бейслайна и улучшенного профиля."
+    )
+    left, right = st.columns(2)
+    left.plotly_chart(
+        px.bar(
+            data.sort_values(metric),
+            x=metric,
+            y="name",
+            orientation="h",
+            labels={"name": "", metric: METRIC_LABELS.get(metric, metric)},
+            title="Качество на ручных вопросах",
+        ),
+        use_container_width=True,
+    )
+    if "hit_rate@1" in data.columns:
+        right.plotly_chart(
+            px.bar(
+                data.sort_values("hit_rate@1"),
+                x=["hit_rate@1", "hit_rate@3"],
+                y="name",
+                barmode="group",
+                orientation="h",
+                labels={"name": "", "value": "Доля", "variable": ""},
+                title="Hit@1 и Hit@3",
+            ),
+            use_container_width=True,
+        )
+
+
+def section_warmup(frame: pd.DataFrame) -> None:
+    data = frame[frame.stage == "warmup"]
+    if data.empty:
+        return
+    st.subheader("Прогрев первого ответа")
+    st.caption("Холодный запуск грузит веса реранкера. После прогрева в UI этот счёт не повторяется.")
+    st.plotly_chart(
+        px.bar(
+            data,
+            x="name",
+            y="latency_p50_ms",
+            labels={"name": "", "latency_p50_ms": "мс"},
+            title="Поиск + реранкер",
+        ),
+        use_container_width=True,
+    )
+
+
+def section_baseline_compare(current: pd.DataFrame, metric: str) -> None:
+    old = results_frame("benchmarks_baseline.csv")
+    if old is None or old.empty:
+        return
+    st.subheader("Бейслайн vs пересчёт абляций")
+    st.caption(
+        "В бейслайне parent / rows / no breadcrumbs имели одинаковые метрики — "
+        "они читали одну коллекцию. Справа — отдельные коллекции."
+    )
+    old_ab = old[old.get("ablation").notna()] if "ablation" in old.columns else pd.DataFrame()
+    new_ab = current[current["ablation"].notna()] if "ablation" in current.columns else pd.DataFrame()
+    if old_ab.empty or new_ab.empty or metric not in old_ab.columns:
+        return
+    merged = old_ab[["name", metric]].merge(
+        new_ab[["name", metric, "n_chunks"]],
+        on="name",
+        suffixes=("_бейслайн", "_сейчас"),
+    )
+    long = merged.melt(
+        id_vars="name",
+        value_vars=[f"{metric}_бейслайн", f"{metric}_сейчас"],
+        var_name="набор",
+        value_name=metric,
+    )
+    long["набор"] = long["набор"].str.replace(f"{metric}_", "", regex=False)
+    st.plotly_chart(
+        px.bar(
+            long,
+            x=metric,
+            y="name",
+            color="набор",
+            barmode="group",
+            orientation="h",
+            labels={"name": "", metric: METRIC_LABELS.get(metric, metric)},
+        ),
+        use_container_width=True,
+    )
+
+
 def main() -> None:
+    selected_profile()
     st.title("📊 Дашборд экспериментов")
     frame = results_frame()
     if frame is None or frame.empty:
@@ -226,8 +369,12 @@ def main() -> None:
         columns[3].metric("Экспериментов", str(len(frame)))
 
     section_chunking(frame, metric)
+    section_baseline_compare(frame, metric)
     section_embeddings(frame, metric)
     section_retrieval(frame, metric)
+    section_improve(frame, metric)
+    section_goldset_expand(frame, metric)
+    section_warmup(frame)
     section_llm(frame)
 
     with st.expander("Все результаты таблицей"):

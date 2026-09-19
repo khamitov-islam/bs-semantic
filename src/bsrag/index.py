@@ -27,13 +27,13 @@ DENSE_VECTOR = "dense"
 SPARSE_VECTOR = "sparse"
 
 
-def collection_name(settings: Settings) -> str:
+def collection_name(settings: Settings, suffix: str = "") -> str:
     """Имя коллекции кодирует конфигурацию, чтобы эксперименты не перетирали друг друга."""
     model = re.sub(r"[^a-zA-Z0-9]+", "_", settings.embedding.model_name).strip("_").lower()
     chunk = settings.chunking
     overlap = int(chunk.chunk_overlap_ratio * 100)
     breadcrumb = "" if chunk.prepend_breadcrumb else "_nobc"
-    return f"bs_{model}_{chunk.strategy}_{chunk.chunk_size}_{overlap}_{chunk.table_mode}{breadcrumb}"
+    return f"bs_{model}_{chunk.strategy}_{chunk.chunk_size}_{overlap}_{chunk.table_mode}{breadcrumb}{suffix}"
 
 
 def chunk_to_document(chunk: Chunk) -> Document:
@@ -95,8 +95,9 @@ def build_index(
     settings: Settings,
     recreate: bool = True,
     batch_size: int = 128,
+    suffix: str = "",
 ) -> QdrantVectorStore:
-    name = collection_name(settings)
+    name = collection_name(settings, suffix)
     # Коллекция всегда собирается гибридной: плотные и BM25-векторы лежат рядом,
     # а режим поиска выбирается уже при запросе. Это позволяет сравнивать
     # dense / sparse / hybrid на одном и том же индексе.
@@ -139,7 +140,7 @@ def build_index(
         batch = documents[start : start + batch_size]
         store.add_documents(batch, ids=[d.metadata["chunk_id"] for d in batch])
 
-    _write_manifest(settings, chunks)
+    _write_manifest(settings, chunks, suffix=suffix)
     return store
 
 
@@ -157,13 +158,21 @@ def _encoders(settings: Settings, mode: RetrievalMode):
     return dense, sparse
 
 
-def index_exists(settings: Settings) -> bool:
-    return manifest_path(settings).exists()
+def index_exists(settings: Settings, suffix: str = "") -> bool:
+    """Коллекция существует только если есть и манифест, и сама коллекция."""
+    if not manifest_path(settings, suffix).exists():
+        return False
+    try:
+        return get_client(index_path(settings)).collection_exists(collection_name(settings, suffix))
+    except Exception:
+        return False
 
 
-def open_index(settings: Settings) -> QdrantVectorStore:
-    name = collection_name(settings)
-    mode = _retrieval_mode(settings.retrieval.mode)
+def open_index(
+    settings: Settings, mode: str | None = None, suffix: str = ""
+) -> QdrantVectorStore:
+    name = collection_name(settings, suffix)
+    mode = _retrieval_mode(mode or settings.retrieval.mode)
     dense, sparse = _encoders(settings, mode)
 
     client = get_client(index_path(settings))
@@ -182,28 +191,29 @@ def open_index(settings: Settings) -> QdrantVectorStore:
     )
 
 
-def manifest_path(settings: Settings) -> Path:
-    return index_path(settings) / f"{collection_name(settings)}.manifest.json"
+def manifest_path(settings: Settings, suffix: str = "") -> Path:
+    return index_path(settings) / f"{collection_name(settings, suffix)}.manifest.json"
 
 
-def read_manifest(settings: Settings) -> dict:
-    path = manifest_path(settings)
+def read_manifest(settings: Settings, suffix: str = "") -> dict:
+    path = manifest_path(settings, suffix)
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
-def _write_manifest(settings: Settings, chunks: list[Chunk]) -> None:
+def _write_manifest(settings: Settings, chunks: list[Chunk], suffix: str = "") -> None:
     tokens = [c.n_tokens for c in chunks] or [0]
     manifest = {
-        "collection": collection_name(settings),
+        "collection": collection_name(settings, suffix),
         "n_chunks": len(chunks),
         "n_pages": len({c.page_id for c in chunks}),
         "embedding_model": settings.embedding.model_name,
         "chunking": settings.chunking.model_dump(),
         "retrieval_mode": settings.retrieval.mode,
+        "suffix": suffix,
         "tokens_mean": sum(tokens) / len(tokens),
         "tokens_max": max(tokens),
     }
-    manifest_path(settings).write_text(
+    manifest_path(settings, suffix).write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 

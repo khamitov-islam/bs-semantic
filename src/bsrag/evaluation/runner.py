@@ -78,20 +78,48 @@ def _log_mlflow(row: ExperimentRow) -> None:
         pass
 
 
-def ensure_index(settings: Settings, pages, console=None) -> tuple[int, float]:
-    """Строит индекс, если коллекции для такой конфигурации ещё нет."""
+def ensure_index(settings: Settings, pages=None, console=None, force: bool = False) -> tuple[int, float]:
+    """Строит индекс, если коллекции для такой конфигурации ещё нет.
+
+    Страницы читаются заново из кэша, зависящего от ``table_mode``: иначе абляция
+    «таблицы построчно» молча ищет по markdown-корпусу бейслайна.
+    """
     from bsrag.chunking import chunk_pages
+    from bsrag.corpus import load_or_prepare_corpus
     from bsrag.index import build_index, collection_name, index_exists, read_manifest
 
-    if index_exists(settings):
-        manifest = read_manifest(settings)
-        return int(manifest.get("n_chunks", 0)), 0.0
-
-    if console:
-        console.print(f"[dim]строю индекс {collection_name(settings)}[/]")
     started = time.perf_counter()
-    chunks = chunk_pages(pages, settings.chunking, settings.embedding.model_name)
-    build_index(chunks, settings)
+    pages = load_or_prepare_corpus(settings)
+    if not force and index_exists(settings):
+        n_chunks = int(read_manifest(settings).get("n_chunks", 0))
+        build_s = 0.0
+    else:
+        if console:
+            verb = "пересобираю" if force else "строю"
+            console.print(f"[dim]{verb} индекс {collection_name(settings)}[/]")
+        chunks = chunk_pages(pages, settings.chunking, settings.embedding.model_name)
+        build_index(chunks, settings)
+        n_chunks = len(chunks)
+        build_s = time.perf_counter() - started
+    table_n, table_s = ensure_table_index(settings, pages, console=console, force=force)
+    return n_chunks + table_n, build_s + table_s
+
+
+def ensure_table_index(settings: Settings, pages, console=None, force: bool = False) -> tuple[int, float]:
+    if not settings.retrieval.table_index:
+        return 0, 0.0
+    from bsrag.chunking import chunk_table_rows
+    from bsrag.corpus import load_or_prepare_corpus
+    from bsrag.index import build_index, collection_name, index_exists, read_manifest
+
+    if not force and index_exists(settings, suffix="_tables"):
+        return int(read_manifest(settings, suffix="_tables").get("n_chunks", 0)), 0.0
+    pages = load_or_prepare_corpus(settings)
+    if console:
+        console.print(f"[dim]строю индекс таблиц {collection_name(settings, '_tables')}[/]")
+    started = time.perf_counter()
+    chunks = chunk_table_rows(pages, settings.chunking, settings.embedding.model_name)
+    build_index(chunks, settings, suffix="_tables")
     return len(chunks), time.perf_counter() - started
 
 
@@ -126,8 +154,11 @@ def evaluate_settings(
     pages,
     params: dict[str, Any],
     console=None,
+    force_index: bool = False,
 ) -> ExperimentRow:
-    n_chunks, build_time = ensure_index(settings, pages, console=console)
+    from bsrag.index import collection_name
+
+    n_chunks, build_time = ensure_index(settings, pages, console=console, force=force_index)
     outcomes = run_queries(settings, goldset.answerable, top_k=10)
 
     metrics = compute_metrics(outcomes)
@@ -137,6 +168,9 @@ def evaluate_settings(
                 metrics[f"{kind}_{key}"] = values[key]
     metrics["n_chunks"] = n_chunks
     metrics["index_build_s"] = round(build_time, 1)
+    metrics["n_questions"] = float(len(outcomes))
+    metrics["n_manual"] = float(sum(1 for o in outcomes if o.item.kind == "manual"))
+    params = {**params, "collection": collection_name(settings)}
 
     row = ExperimentRow(stage=stage, name=name, params=params, metrics=metrics)
     _log_mlflow(row)
@@ -218,7 +252,7 @@ def stage_chunking(settings: Settings, goldset: GoldSet, pages, console=None) ->
         "fixed (без учёта заголовков)": {"chunking__strategy": "fixed"},
         "parent-document": {"chunking__strategy": "parent"},
         "таблицы построчно": {"chunking__table_mode": "rows"},
-        "без хлебных крошек": {"chunking__prepend_breadcrumb": False},
+        "no breadcrumbs": {"chunking__prepend_breadcrumb": False},
     }
     for label, changes in ablations.items():
         variant = _variant(tuned, **changes)
@@ -239,6 +273,7 @@ def stage_chunking(settings: Settings, goldset: GoldSet, pages, console=None) ->
                     "ablation": label,
                 },
                 console=console,
+                force_index=True,
             )
         )
     return rows
@@ -329,11 +364,203 @@ def stage_llm(settings: Settings, goldset: GoldSet, pages, console=None) -> list
     return rows
 
 
+def stage_ablations(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
+    """Пересчёт абляций нарезки на отдельных коллекциях.
+
+    Сетка размер×оверлап не трогается: она и так жила в разных коллекциях.
+    Пересобираются только четыре варианта, которые в бейслайне читали чужой индекс
+    или тот же embed_text.
+    """
+    base = _variant(
+        settings,
+        embedding__model_name=BASELINE_EMBEDDING,
+        retrieval__use_reranker=False,
+        chunking__chunk_size=256,
+        chunking__chunk_overlap_ratio=0.15,
+    )
+    rows: list[ExperimentRow] = []
+    ablations = {
+        "fixed (без учёта заголовков)": {"chunking__strategy": "fixed"},
+        "parent-document": {"chunking__strategy": "parent"},
+        "таблицы построчно": {"chunking__table_mode": "rows"},
+        "no breadcrumbs": {"chunking__prepend_breadcrumb": False},
+    }
+    for label, changes in ablations.items():
+        variant = _variant(base, **changes)
+        rows.append(
+            evaluate_settings(
+                "chunking",
+                f"{label} @256/15%",
+                variant,
+                goldset,
+                pages,
+                {
+                    "strategy": variant.chunking.strategy,
+                    "chunk_size": 256,
+                    "overlap": 0.15,
+                    "table_mode": variant.chunking.table_mode,
+                    "breadcrumb": variant.chunking.prepend_breadcrumb,
+                    "embedding_model": BASELINE_EMBEDDING,
+                    "ablation": label,
+                },
+                console=console,
+                force_index=True,
+            )
+        )
+    return rows
+
+
+def stage_improve(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
+    """Таблицы, взвешенный RRF и честный rows на USER-bge-m3 512."""
+    rows: list[ExperimentRow] = []
+    trials: list[tuple[str, dict[str, Any]]] = [
+        (
+            "USER-bge-m3 512 rows + реранкер",
+            {
+                "chunking__table_mode": "rows",
+                "retrieval__table_index": False,
+                "retrieval__weighted_fusion": False,
+                "retrieval__query_expand": False,
+            },
+        ),
+        (
+            "взвешенный RRF",
+            {
+                "retrieval__table_index": False,
+                "retrieval__weighted_fusion": True,
+                "retrieval__query_expand": True,
+            },
+        ),
+        (
+            "индекс таблиц + hybrid",
+            {
+                "retrieval__table_index": True,
+                "retrieval__weighted_fusion": False,
+                "retrieval__query_expand": True,
+            },
+        ),
+        (
+            "таблицы + взвешенный RRF",
+            {
+                "retrieval__table_index": True,
+                "retrieval__weighted_fusion": True,
+                "retrieval__query_expand": True,
+            },
+        ),
+    ]
+    for name, changes in trials:
+        variant = _variant(
+            settings,
+            retrieval__mode="hybrid",
+            retrieval__use_reranker=True,
+            **changes,
+        )
+        rows.append(
+            evaluate_settings(
+                "improve",
+                name,
+                variant,
+                goldset,
+                pages,
+                {
+                    "mode": "hybrid",
+                    "reranker": True,
+                    "query_expand": variant.retrieval.query_expand,
+                    "table_index": variant.retrieval.table_index,
+                    "weighted_fusion": variant.retrieval.weighted_fusion,
+                    "table_mode": variant.chunking.table_mode,
+                    "embedding_model": variant.embedding.model_name,
+                    "candidates": variant.retrieval.candidates,
+                },
+                console=console,
+            )
+        )
+    return rows
+
+
+def stage_warmup(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
+    """Холодный vs тёплый первый поиск: обоснование прогрева в UI."""
+    from bsrag.embeddings import get_embeddings
+    from bsrag.retrieval import Retriever, get_reranker
+
+    ensure_index(settings, pages, console=console)
+    get_embeddings.cache_clear()
+    get_reranker.cache_clear()
+
+    retriever = Retriever(settings)
+    question = goldset.answerable[0].question if goldset.answerable else "проверка"
+
+    cold = retriever.search(question, top_k=5)
+    warm = retriever.search(question, top_k=5)
+    rows = [
+        ExperimentRow(
+            "warmup",
+            "холодный первый поиск",
+            {"wave": "cold"},
+            {
+                "latency_p50_ms": cold.total_ms,
+                "retrieval_ms_mean": cold.retrieval_ms,
+                "rerank_ms_mean": cold.rerank_ms,
+            },
+        ),
+        ExperimentRow(
+            "warmup",
+            "повторный поиск (после прогрева)",
+            {"wave": "warm"},
+            {
+                "latency_p50_ms": warm.total_ms,
+                "retrieval_ms_mean": warm.retrieval_ms,
+                "rerank_ms_mean": warm.rerank_ms,
+            },
+        ),
+    ]
+    if console:
+        console.print(
+            f"[bold]холодный[/]: {cold.total_ms:.0f} мс · "
+            f"[bold]тёплый[/]: {warm.total_ms:.0f} мс"
+        )
+    return rows
+
+
+def stage_goldset_expand(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
+    """Бейслайн vs улучшенный только на ручных вопросах текущего goldset."""
+    from bsrag.config import PROJECT_ROOT, load_settings
+
+    manuals = GoldSet(goldset.of_kind("manual"))
+    baseline = load_settings(PROJECT_ROOT / "configs" / "baseline.yaml")
+    rows: list[ExperimentRow] = []
+    for name, variant in (("улучшенный профиль", settings), ("бейслайн", baseline)):
+        rows.append(
+            evaluate_settings(
+                "goldset_expand",
+                name,
+                variant,
+                manuals,
+                pages,
+                {
+                    "profile": name,
+                    "n_manual": len(manuals.of_kind("manual")),
+                    "embedding_model": variant.embedding.model_name,
+                    "reranker": variant.retrieval.use_reranker,
+                    "table_index": variant.retrieval.table_index,
+                    "query_expand": variant.retrieval.query_expand,
+                    "breadcrumb": variant.chunking.prepend_breadcrumb,
+                },
+                console=console,
+            )
+        )
+    return rows
+
+
 STAGES = {
     "chunking": stage_chunking,
     "embeddings": stage_embeddings,
     "retrieval": stage_retrieval,
     "llm": stage_llm,
+    "ablations": stage_ablations,
+    "improve": stage_improve,
+    "warmup": stage_warmup,
+    "goldset_expand": stage_goldset_expand,
 }
 
 

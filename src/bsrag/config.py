@@ -49,6 +49,13 @@ class RetrievalConfig(BaseModel):
     use_reranker: bool = True
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     score_threshold: float | None = None
+    # Несколько формулировок одного вопроса + RRF. Бейслайн держит выключенным.
+    query_expand: bool = False
+    rrf_k: int = 60
+    # Вторая коллекция: строки таблиц (клавиши, меню, порты). Бейслайн выключен.
+    table_index: bool = False
+    # Свои веса dense/BM25 вместо равного RRF Qdrant. Не обучается на goldset.
+    weighted_fusion: bool = False
 
 
 class GenerationConfig(BaseModel):
@@ -58,6 +65,7 @@ class GenerationConfig(BaseModel):
     num_ctx: int = 8192
     max_tokens: int = 1024
     think: bool = False
+    keep_alive: int | str = -1
 
 
 class PathsConfig(BaseModel):

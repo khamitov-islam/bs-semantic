@@ -6,7 +6,14 @@ import time
 
 import streamlit as st
 
-from common import get_retriever, get_settings, render_source, sidebar_status
+from common import (
+    get_retriever,
+    get_settings,
+    render_source,
+    selected_profile,
+    sidebar_status,
+    warmup_runtime,
+)
 
 st.set_page_config(page_title="Поиск по справке Business Studio", page_icon="📘", layout="wide")
 
@@ -19,15 +26,22 @@ EXAMPLES = [
 
 
 def main() -> None:
-    settings = get_settings()
+    profile = selected_profile()
+    settings = get_settings(profile)
     st.title("📘 Поиск по справке Business Studio")
-    st.caption(
-        "Семантический поиск и ответы локальной LLM. Все модели работают на этом "
-        "компьютере, данные наружу не уходят."
-    )
+    if profile == "baseline":
+        st.caption("Зафиксированный бейслайн: hybrid + реранкер, без раскрытия запроса.")
+    else:
+        st.caption(
+            "Семантический поиск и ответы локальной LLM. Все модели работают на этом "
+            "компьютере, данные наружу не уходят."
+        )
 
     controls = sidebar(settings)
-    sidebar_status(settings)
+    warmup = warmup_runtime(
+        profile, controls["mode"], settings.embedding.model_name, controls["model"]
+    )
+    sidebar_status(settings, warmup)
 
     if "history" not in st.session_state:
         st.session_state.history = []
@@ -52,7 +66,8 @@ def main() -> None:
     if not question:
         question = st.session_state.pop("pending", None)
     if question:
-        answer(question, settings, controls)
+        answer(question, settings, controls, profile)
+        st.rerun()
 
 
 def sidebar(settings) -> dict:
@@ -84,14 +99,14 @@ def sidebar(settings) -> dict:
     }
 
 
-def answer(question: str, settings, controls: dict) -> None:
+def answer(question: str, settings, controls: dict, profile: str) -> None:
     from bsrag.generation import stream
     from bsrag.retrieval import deduplicate_by_page
 
     with st.chat_message("user"):
         st.write(question)
 
-    retriever = get_retriever(controls["mode"], settings.embedding.model_name)
+    retriever = get_retriever(profile, controls["mode"], settings.embedding.model_name)
     with st.spinner("Ищу в справке..."):
         result = retriever.search(
             question, top_k=controls["top_k"] * 3, use_reranker=controls["use_reranker"]

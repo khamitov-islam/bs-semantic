@@ -74,12 +74,32 @@ def build_llm(config: GenerationConfig, streaming: bool = False) -> ChatOllama:
         "num_ctx": config.num_ctx,
         "num_predict": config.max_tokens,
         "streaming": streaming,
+        "keep_alive": config.keep_alive,
     }
     if not config.think:
         # Отключает «размышления» у гибридных моделей: в RAG они дают задержку,
         # но не улучшают ответ, собранный из готовых фрагментов справки.
         kwargs["reasoning"] = False
     return ChatOllama(**kwargs)
+
+
+def warmup_llm(config: GenerationConfig) -> None:
+    """Держит веса модели в памяти Ollama, чтобы первый ответ не ждал загрузки."""
+    try:
+        httpx.post(
+            f"{config.base_url.rstrip('/')}/api/generate",
+            json={
+                "model": config.model,
+                "prompt": "ок",
+                "stream": False,
+                "keep_alive": config.keep_alive,
+                "think": False,
+                "options": {"num_predict": 1, "temperature": 0},
+            },
+            timeout=180.0,
+        )
+    except Exception:
+        pass
 
 
 def _messages(question: str, hits: list[Hit]) -> list[tuple[str, str]]:

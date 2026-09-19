@@ -13,7 +13,19 @@ from bsrag.parsing.loader import Page, load_pages, read_pages, save_pages
 
 
 def pages_file(settings: Settings) -> Path:
-    return settings.resolve(settings.paths.processed) / "pages.jsonl"
+    """Кэш страниц зависит от ``table_mode``: rows пересобирает markdown таблиц.
+
+    Старый файл ``pages.jsonl`` остаётся кэшем режима markdown, чтобы бейслайн
+    не пересчитывался.
+    """
+    processed = settings.resolve(settings.paths.processed)
+    mode = settings.chunking.table_mode
+    if mode == "markdown":
+        legacy = processed / "pages.jsonl"
+        if legacy.exists():
+            return legacy
+        return processed / "pages_markdown.jsonl"
+    return processed / f"pages_{mode}.jsonl"
 
 
 def prepare_corpus(settings: Settings | None = None) -> list[Page]:

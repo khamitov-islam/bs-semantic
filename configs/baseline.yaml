@@ -1,4 +1,5 @@
-# Текущая (улучшенная) конфигурация. Зафиксированный бейслайн — configs/baseline.yaml.
+# Зафиксированный бейслайн. Не менять: это конфигурация, которую всегда
+# можно показать в UI (профиль «Бейслайн»). Улучшения живут в default.yaml.
 
 corpus:
   pages_dir: bs_6/docs/data/pages
@@ -13,8 +14,7 @@ chunking:
   chunk_size: 512
   chunk_overlap_ratio: 0.15
   table_mode: markdown
-  # На USER-bge-m3 крошки чуть размывают запрос: manual nDCG 0.75 → 0.77 без них.
-  prepend_breadcrumb: false
+  prepend_breadcrumb: true
 
 embedding:
   model_name: deepvk/USER-bge-m3
@@ -31,10 +31,6 @@ retrieval:
   candidates: 16
   use_reranker: true
   reranker_model: BAAI/bge-reranker-v2-m3
-  query_expand: true
-  rrf_k: 60
-  table_index: true
-  weighted_fusion: false
 
 generation:
   model: qwen3:8b
@@ -43,7 +39,6 @@ generation:
   num_ctx: 8192
   max_tokens: 1024
   think: false
-  keep_alive: -1
 
 paths:
   processed: data/processed
