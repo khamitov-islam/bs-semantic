@@ -1,5 +1,6 @@
 [server]
-address = "127.0.0.1"
+# Пустой адрес — и IPv4, и IPv6. Иначе localhost в Safari идёт на ::1,
+# а сервер на 127.0.0.1 даёт ERR_CONNECTION_REFUSED.
 port = 8501
 headless = true
 enableCORS = false

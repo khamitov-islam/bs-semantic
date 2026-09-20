@@ -232,9 +232,6 @@ def ui(port: int = typer.Option(8501), config: Optional[str] = ConfigOption) -> 
             str(app_path),
             "--server.port",
             str(port),
-            # Safari на macOS не открывает Streamlit, если он слушает только IPv6 (::).
-            "--server.address",
-            "127.0.0.1",
             "--server.headless",
             "true",
         ]

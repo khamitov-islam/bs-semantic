@@ -222,8 +222,8 @@ def section_improve(frame: pd.DataFrame, metric: str) -> None:
         return
     st.subheader("Этап E. Улучшения поверх бейслайна")
     st.caption(
-        "Тот же индекс USER-bge-m3. Меняются только формулировка запроса и ширина "
-        "пула до реранкера — это можно выключить, переключив профиль на бейслайн."
+        "Один фактор поверх опоры C (USER hybrid+реранкер). "
+        "Бейслайн в сайдбаре — это опора C; улучшенный собирает nobc + таблицы + раскрытие."
     )
     left, right = st.columns(2)
     left.plotly_chart(

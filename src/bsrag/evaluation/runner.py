@@ -177,7 +177,9 @@ def evaluate_settings(
     if console:
         console.print(
             f"[bold]{name}[/]: nDCG@10 {metrics.get('ndcg@10', 0):.3f} · "
+            f"hit@1 {metrics.get('hit_rate@1', 0):.3f} · "
             f"hit@3 {metrics.get('hit_rate@3', 0):.3f} · "
+            f"n={int(metrics.get('n_questions', 0))} · "
             f"чанков {n_chunks} · {metrics.get('latency_p50_ms', 0):.0f} мс"
         )
     return row
@@ -192,15 +194,40 @@ def _variant(settings: Settings, **changes: Any) -> Settings:
     return Settings.model_validate(data)
 
 
-def stage_chunking(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
-    """Этап A: размер чанка, оверлап и способ нарезки.
+def _manuals(goldset: GoldSet) -> GoldSet:
+    """A–E и сравнение профилей — только ручные вопросы, без синтетики из чанка."""
+    return GoldSet(goldset.of_kind("manual"))
 
-    Считается на быстрой модели e5-base — выводы о нарезке переносятся между
-    моделями, а прогон выходит втрое дешевле.
+
+def _factor_base(settings: Settings, **changes: Any) -> Settings:
+    """Опора этапов A–C: без улучшений E, иначе факторы смешаются.
+
+    Крошки включены, индекс таблиц и раскрытие запроса выключены. Чанкинг
+    512/15% markdown — то, что ушло в замороженное решение.
     """
-    # Реранкер сюда не подключаем: он сглаживает разницу между нарезками,
-    # а этап как раз должен показать вклад чанкинга самого по себе.
-    base = _variant(
+    return _variant(
+        settings,
+        chunking__strategy="header_recursive",
+        chunking__chunk_size=512,
+        chunking__chunk_overlap_ratio=0.15,
+        chunking__table_mode="markdown",
+        chunking__prepend_breadcrumb=True,
+        retrieval__table_index=False,
+        retrieval__query_expand=False,
+        retrieval__weighted_fusion=False,
+        retrieval__candidates=16,
+        **changes,
+    )
+
+
+def stage_chunking(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
+    """Этап A: сетка размер × оверлап. Абляции — отдельный этап ``ablations``.
+
+    Считается на быстрой модели e5-base, без реранкера: иначе он сглаживает
+    разницу между нарезками. Улучшения E выключены.
+    """
+    goldset = _manuals(goldset)
+    base = _factor_base(
         settings,
         embedding__model_name=BASELINE_EMBEDDING,
         retrieval__use_reranker=False,
@@ -228,64 +255,17 @@ def stage_chunking(settings: Settings, goldset: GoldSet, pages, console=None) ->
                     console=console,
                 )
             )
-
-    scored = [
-        r
-        for r in rows
-        if not r.params.get("ablation")
-    ]
-    best = max(
-        scored,
-        key=lambda r: (
-            r.metrics.get("manual_ndcg@10") or r.metrics.get("ndcg@10", 0),
-            r.metrics.get("manual_hit_rate@3") or r.metrics.get("hit_rate@3", 0),
-            -r.metrics.get("n_chunks", 0),
-        ),
-    )
-    best_size = best.params["chunk_size"]
-    best_overlap = best.params["overlap"]
-    tuned = _variant(
-        base, chunking__chunk_size=best_size, chunking__chunk_overlap_ratio=best_overlap
-    )
-
-    ablations = {
-        "fixed (без учёта заголовков)": {"chunking__strategy": "fixed"},
-        "parent-document": {"chunking__strategy": "parent"},
-        "таблицы построчно": {"chunking__table_mode": "rows"},
-        "no breadcrumbs": {"chunking__prepend_breadcrumb": False},
-    }
-    for label, changes in ablations.items():
-        variant = _variant(tuned, **changes)
-        rows.append(
-            evaluate_settings(
-                "chunking",
-                f"{label} @{best_size}/{int(best_overlap * 100)}%",
-                variant,
-                goldset,
-                pages,
-                {
-                    "strategy": variant.chunking.strategy,
-                    "chunk_size": best_size,
-                    "overlap": best_overlap,
-                    "table_mode": variant.chunking.table_mode,
-                    "breadcrumb": variant.chunking.prepend_breadcrumb,
-                    "embedding_model": BASELINE_EMBEDDING,
-                    "ablation": label,
-                },
-                console=console,
-                force_index=True,
-            )
-        )
     return rows
 
 
 def stage_embeddings(
     settings: Settings, goldset: GoldSet, pages, console=None
 ) -> list[ExperimentRow]:
-    """Этап B: сравнение эмбеддеров на лучшей нарезке."""
+    """Этап B: сравнение эмбеддеров на зафиксированной нарезке 512/15%."""
+    goldset = _manuals(goldset)
     rows: list[ExperimentRow] = []
     for model in EMBEDDING_MODELS:
-        variant = _variant(
+        variant = _factor_base(
             settings,
             embedding__model_name=model,
             retrieval__use_reranker=False,
@@ -316,11 +296,16 @@ def stage_embeddings(
 def stage_retrieval(
     settings: Settings, goldset: GoldSet, pages, console=None
 ) -> list[ExperimentRow]:
-    """Этап C: плотный / BM25 / гибрид и вклад реранкера."""
+    """Этап C: плотный / BM25 / гибрид и вклад реранкера на победителе B."""
+    goldset = _manuals(goldset)
     rows: list[ExperimentRow] = []
     for mode in ("dense", "sparse", "hybrid"):
         for rerank in (False, True):
-            variant = _variant(settings, retrieval__mode=mode, retrieval__use_reranker=rerank)
+            variant = _factor_base(
+                settings,
+                retrieval__mode=mode,
+                retrieval__use_reranker=rerank,
+            )
             label = f"{mode}{' + реранкер' if rerank else ''}"
             rows.append(
                 evaluate_settings(
@@ -346,9 +331,8 @@ def stage_llm(settings: Settings, goldset: GoldSet, pages, console=None) -> list
     from bsrag.evaluation.answers import evaluate_llm
 
     ensure_index(settings, pages, console=console)
-    # Полный набор ручных + ловушки: авто-вопросы для LLM не информативны,
-    # а судья удваивает число вызовов. Берём все ловушки и первые 12 каверзных.
-    goldset = GoldSet(goldset.of_kind("manual")[:12] + goldset.of_kind("trap"))
+    # Все ручные + ловушки. Авто из чанка для LLM не информативны.
+    goldset = GoldSet(goldset.of_kind("manual") + goldset.of_kind("trap"))
     rows: list[ExperimentRow] = []
     for model in LLM_MODELS:
         variant = _variant(settings, generation__model=model)
@@ -365,18 +349,15 @@ def stage_llm(settings: Settings, goldset: GoldSet, pages, console=None) -> list
 
 
 def stage_ablations(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
-    """Пересчёт абляций нарезки на отдельных коллекциях.
+    """Абляции нарезки на 512/15% — на том размере, который ушёл в решение.
 
-    Сетка размер×оверлап не трогается: она и так жила в разных коллекциях.
-    Пересобираются только четыре варианта, которые в бейслайне читали чужой индекс
-    или тот же embed_text.
+    Отдельные коллекции, ``force_index``: иначе варианты читают чужой индекс.
     """
-    base = _variant(
+    goldset = _manuals(goldset)
+    base = _factor_base(
         settings,
         embedding__model_name=BASELINE_EMBEDDING,
         retrieval__use_reranker=False,
-        chunking__chunk_size=256,
-        chunking__chunk_overlap_ratio=0.15,
     )
     rows: list[ExperimentRow] = []
     ablations = {
@@ -390,13 +371,13 @@ def stage_ablations(settings: Settings, goldset: GoldSet, pages, console=None) -
         rows.append(
             evaluate_settings(
                 "chunking",
-                f"{label} @256/15%",
+                f"{label} @512/15%",
                 variant,
                 goldset,
                 pages,
                 {
                     "strategy": variant.chunking.strategy,
-                    "chunk_size": 256,
+                    "chunk_size": 512,
                     "overlap": 0.15,
                     "table_mode": variant.chunking.table_mode,
                     "breadcrumb": variant.chunking.prepend_breadcrumb,
@@ -411,50 +392,43 @@ def stage_ablations(settings: Settings, goldset: GoldSet, pages, console=None) -
 
 
 def stage_improve(settings: Settings, goldset: GoldSet, pages, console=None) -> list[ExperimentRow]:
-    """Таблицы, взвешенный RRF и честный rows на USER-bge-m3 512."""
+    """Этап E: один фактор поверх победителя C, затем собранный улучшенный профиль."""
+    goldset = _manuals(goldset)
+    control = _factor_base(
+        settings,
+        retrieval__mode="hybrid",
+        retrieval__use_reranker=True,
+    )
     rows: list[ExperimentRow] = []
-    trials: list[tuple[str, dict[str, Any]]] = [
+    trials: list[tuple[str, Settings]] = [
+        ("опора C: hybrid+реранкер", control),
         (
-            "USER-bge-m3 512 rows + реранкер",
-            {
-                "chunking__table_mode": "rows",
-                "retrieval__table_index": False,
-                "retrieval__weighted_fusion": False,
-                "retrieval__query_expand": False,
-            },
+            "+ лексическое раскрытие",
+            _variant(control, retrieval__query_expand=True),
+        ),
+        (
+            "+ без крошек",
+            _variant(control, chunking__prepend_breadcrumb=False),
+        ),
+        (
+            "+ индекс таблиц",
+            _variant(control, retrieval__table_index=True),
+        ),
+        (
+            "+ 32 кандидата",
+            _variant(control, retrieval__candidates=32),
         ),
         (
             "взвешенный RRF",
-            {
-                "retrieval__table_index": False,
-                "retrieval__weighted_fusion": True,
-                "retrieval__query_expand": True,
-            },
+            _variant(control, retrieval__weighted_fusion=True),
         ),
         (
-            "индекс таблиц + hybrid",
-            {
-                "retrieval__table_index": True,
-                "retrieval__weighted_fusion": False,
-                "retrieval__query_expand": True,
-            },
+            "весь корпус rows",
+            _variant(control, chunking__table_mode="rows"),
         ),
-        (
-            "таблицы + взвешенный RRF",
-            {
-                "retrieval__table_index": True,
-                "retrieval__weighted_fusion": True,
-                "retrieval__query_expand": True,
-            },
-        ),
+        ("всё вместе (улучшенный)", settings),
     ]
-    for name, changes in trials:
-        variant = _variant(
-            settings,
-            retrieval__mode="hybrid",
-            retrieval__use_reranker=True,
-            **changes,
-        )
+    for name, variant in trials:
         rows.append(
             evaluate_settings(
                 "improve",
@@ -463,12 +437,13 @@ def stage_improve(settings: Settings, goldset: GoldSet, pages, console=None) -> 
                 goldset,
                 pages,
                 {
-                    "mode": "hybrid",
-                    "reranker": True,
+                    "mode": variant.retrieval.mode,
+                    "reranker": variant.retrieval.use_reranker,
                     "query_expand": variant.retrieval.query_expand,
                     "table_index": variant.retrieval.table_index,
                     "weighted_fusion": variant.retrieval.weighted_fusion,
                     "table_mode": variant.chunking.table_mode,
+                    "breadcrumb": variant.chunking.prepend_breadcrumb,
                     "embedding_model": variant.embedding.model_name,
                     "candidates": variant.retrieval.candidates,
                 },
@@ -554,12 +529,12 @@ def stage_goldset_expand(settings: Settings, goldset: GoldSet, pages, console=No
 
 STAGES = {
     "chunking": stage_chunking,
+    "ablations": stage_ablations,
     "embeddings": stage_embeddings,
     "retrieval": stage_retrieval,
-    "llm": stage_llm,
-    "ablations": stage_ablations,
     "improve": stage_improve,
     "warmup": stage_warmup,
+    "llm": stage_llm,
     "goldset_expand": stage_goldset_expand,
 }
 
@@ -571,6 +546,13 @@ def run_stage(stage: str, settings: Settings, console=None, limit: int | None = 
     goldset = load_goldset(path)
     if limit:
         goldset = GoldSet(goldset.items[:limit])
+    if console:
+        console.print(
+            f"Goldset: ручных {len(goldset.of_kind('manual'))}, "
+            f"ловушек {len(goldset.of_kind('trap'))}, "
+            f"авто {len(goldset.of_kind('auto'))} "
+            f"(A–E ищут только по ручным)"
+        )
     pages = load_or_prepare_corpus(settings)
 
     names = list(STAGES) if stage == "all" else [stage]
