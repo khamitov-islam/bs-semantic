@@ -83,13 +83,17 @@ uv run bsrag ask --config configs/sample.yaml "Как открыть окно ф
 - **Дашборд** — графики `reports/benchmarks.csv`: нарезка, эмбеддинги, схема поиска, LLM.
 - **Инспектор корпуса** — исходный DokuWiki, очищенный markdown и чанки одной страницы.
 
+![Поиск: стартовый экран с профилем Улучшенный](docs/screenshots/search.png)
+
 ![Поиск: ответ со ссылками на справку](docs/screenshots/search-answer.png)
 
 ![Дашборд: сетка чанкинга](docs/screenshots/dashboard.png)
 
-![Дашборд: абляции и эмбеддинги](docs/screenshots/dashboard-embeddings.png)
+![Дашборд: эмбеддинги и схема поиска](docs/screenshots/dashboard-embeddings.png)
 
-![Дашборд: схема поиска и LLM](docs/screenshots/dashboard-llm.png)
+![Дашборд: 76 ручных вопросов, бейслайн vs улучшенный](docs/screenshots/dashboard-retrieval.png)
+
+![Дашборд: локальные LLM](docs/screenshots/dashboard-llm.png)
 
 ![Инспектор корпуса](docs/screenshots/inspector.png)
 
