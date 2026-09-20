@@ -74,7 +74,16 @@ def section_chunking(frame: pd.DataFrame, metric: str) -> None:
     if "ablation" in data.columns and data["ablation"].notna().any():
         cols = [c for c in ("name", metric, "n_chunks", "collection") if c in data.columns]
         ablations = data[data["ablation"].notna()][cols].copy()
-        baseline = grid[metric].max() if not grid.empty else None
+        shipped = pd.DataFrame()
+        if not grid.empty and {"chunk_size", "overlap"}.issubset(grid.columns):
+            shipped = grid[(grid["chunk_size"] == 512) & (grid["overlap"].round(2) == 0.15)]
+        if not shipped.empty:
+            ref_row = shipped[cols].copy()
+            ref_row["name"] = "header-aware 512/15% (решение)"
+            ablations = pd.concat([ref_row, ablations], ignore_index=True)
+            reference = float(shipped[metric].iloc[0])
+        else:
+            reference = None
         chart = px.bar(
             ablations.sort_values(metric),
             x=metric,
@@ -84,18 +93,26 @@ def section_chunking(frame: pd.DataFrame, metric: str) -> None:
             labels={"name": "", metric: METRIC_LABELS.get(metric, metric)},
             title="Что будет, если сделать иначе (подпись — число чанков)",
         )
-        if baseline is not None:
+        if reference is not None:
             chart.add_vline(
-                x=baseline,
+                x=reference,
                 line_dash="dash",
-                annotation_text="лучшая конфигурация сетки",
+                annotation_text="решение 512/15%",
                 line_color="green",
             )
+        chart.update_layout(height=360, margin={"l": 10, "r": 10, "t": 40, "b": 10})
         st.plotly_chart(chart, use_container_width=True)
+        grid_best = None
+        if not grid.empty:
+            top = grid.loc[grid[metric].idxmax()]
+            grid_best = (
+                f"{int(top['chunk_size'])}/{int(round(float(top['overlap']) * 100))}%"
+                f" ({METRIC_LABELS.get(metric, metric)} {top[metric]:.3f})"
+            )
         st.caption(
-            "parent-document не меняет текст эмбеддера — только контекст для LLM, "
-            "поэтому retrieval-метрики совпадают с header-aware. "
-            "no breadcrumbs и tables-as-rows считаются на отдельных коллекциях."
+            "Абляции считали на 512/15% — на размере, который ушёл в решение. "
+            + (f"Победитель сетки {grid_best} здесь не линия: это другая клетка. " if grid_best else "")
+            + "parent-document не меняет текст эмбеддера, поэтому совпадает с header-aware."
         )
         if "collection" in ablations.columns:
             st.dataframe(
@@ -110,7 +127,10 @@ def section_embeddings(frame: pd.DataFrame, metric: str) -> None:
     if data.empty:
         return
     st.subheader("Этап B. Модели эмбеддингов")
-    st.caption("Качество против стоимости: индексация корпуса и задержка поиска.")
+    st.caption(
+        "Индексация не пересобиралась, если коллекция уже была: `index_build_s = 0` "
+        "не значит, что модели одинаково дешёвые. Справа — качество против задержки поиска."
+    )
 
     left, right = st.columns(2)
     left.plotly_chart(
@@ -124,17 +144,22 @@ def section_embeddings(frame: pd.DataFrame, metric: str) -> None:
         ),
         use_container_width=True,
     )
+    cost_x = "latency_p50_ms"
+    cost_label = "Задержка поиска (медиана), мс"
+    if "index_build_s" in data.columns and float(data["index_build_s"].fillna(0).max()) > 0:
+        cost_x = "index_build_s"
+        cost_label = "Индексация корпуса, с"
     scatter = px.scatter(
         data,
-        x="index_build_s",
+        x=cost_x,
         y=metric,
         text="name",
-        size="latency_p50_ms",
+        size="n_chunks" if "n_chunks" in data.columns else None,
         labels={
-            "index_build_s": "Индексация корпуса, с",
+            cost_x: cost_label,
             metric: METRIC_LABELS.get(metric, metric),
         },
-        title="Качество и цена (размер точки — задержка запроса)",
+        title="Качество и цена (размер точки — число чанков)",
     )
     scatter.update_traces(textposition="top center")
     right.plotly_chart(scatter, use_container_width=True)
@@ -256,10 +281,10 @@ def section_goldset_expand(frame: pd.DataFrame, metric: str) -> None:
     if data.empty:
         return
     n_manual = int(data["n_manual"].dropna().max()) if "n_manual" in data.columns else 0
-    st.subheader("Расширенный ручной goldset")
+    st.subheader("Бейслайн vs улучшенный")
     st.caption(
-        f"Только каверзные вопросы ({n_manual or 'все ручные'}), без синтетики из чанков. "
-        "Один и тот же набор для бейслайна и улучшенного профиля."
+        f"Те же {n_manual or 76} ручных вопросов, без синтетики. "
+        "Бейслайн — опора C; улучшенный — nobc + таблицы + раскрытие."
     )
     left, right = st.columns(2)
     left.plotly_chart(
@@ -306,45 +331,6 @@ def section_warmup(frame: pd.DataFrame) -> None:
     )
 
 
-def section_baseline_compare(current: pd.DataFrame, metric: str) -> None:
-    old = results_frame("benchmarks_baseline.csv")
-    if old is None or old.empty:
-        return
-    st.subheader("Бейслайн vs пересчёт абляций")
-    st.caption(
-        "В бейслайне parent / rows / no breadcrumbs имели одинаковые метрики — "
-        "они читали одну коллекцию. Справа — отдельные коллекции."
-    )
-    old_ab = old[old.get("ablation").notna()] if "ablation" in old.columns else pd.DataFrame()
-    new_ab = current[current["ablation"].notna()] if "ablation" in current.columns else pd.DataFrame()
-    if old_ab.empty or new_ab.empty or metric not in old_ab.columns:
-        return
-    merged = old_ab[["name", metric]].merge(
-        new_ab[["name", metric, "n_chunks"]],
-        on="name",
-        suffixes=("_бейслайн", "_сейчас"),
-    )
-    long = merged.melt(
-        id_vars="name",
-        value_vars=[f"{metric}_бейслайн", f"{metric}_сейчас"],
-        var_name="набор",
-        value_name=metric,
-    )
-    long["набор"] = long["набор"].str.replace(f"{metric}_", "", regex=False)
-    st.plotly_chart(
-        px.bar(
-            long,
-            x=metric,
-            y="name",
-            color="набор",
-            barmode="group",
-            orientation="h",
-            labels={"name": "", metric: METRIC_LABELS.get(metric, metric)},
-        ),
-        use_container_width=True,
-    )
-
-
 def main() -> None:
     selected_profile()
     st.title("📊 Дашборд экспериментов")
@@ -369,7 +355,6 @@ def main() -> None:
         columns[3].metric("Экспериментов", str(len(frame)))
 
     section_chunking(frame, metric)
-    section_baseline_compare(frame, metric)
     section_embeddings(frame, metric)
     section_retrieval(frame, metric)
     section_improve(frame, metric)
