@@ -1,0 +1,33 @@
+Goldset: ручных 76, ловушек 12, авто 40 (A–E ищут только по ручным)
+─────────────────────────────── Этап: embeddings ───────────────────────────────
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 10174.39it/s]
+intfloat/multilingual-e5-small: nDCG@10 0.700 · hit@1 0.539 · hit@3 0.789 · n=76
+· чанков 2569 · 42 мс
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9334.43it/s]
+intfloat/multilingual-e5-base: nDCG@10 0.723 · hit@1 0.553 · hit@3 0.816 · n=76 
+· чанков 2569 · 49 мс
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]Loading weights: 100%|██████████| 391/391 [00:00<00:00, 9324.86it/s]
+intfloat/multilingual-e5-large: nDCG@10 0.766 · hit@1 0.632 · hit@3 0.842 · n=76
+· чанков 2569 · 65 мс
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9058.09it/s]
+Default prompt name is set to 'Classification'. This prompt will be applied to all inference calls, except if a `prompt` or `prompt_name` parameter is provided.
+sergeyzh/BERTA: nDCG@10 0.767 · hit@1 0.645 · hit@3 0.842 · n=76 · чанков 2494 ·
+49 мс
+Loading weights:   0%|          | 0/389 [00:00<?, ?it/s]Loading weights: 100%|██████████| 389/389 [00:00<00:00, 9646.41it/s]
+[transformers] [1mRobertaModel LOAD REPORT[0m from: ai-forever/ru-en-RoSBERTa
+Key                 | Status  | 
+--------------------+---------+-
+pooler.dense.weight | MISSING | 
+pooler.dense.bias   | MISSING | 
+
+Notes:
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+ai-forever/ru-en-RoSBERTa: nDCG@10 0.685 · hit@1 0.513 · hit@3 0.789 · n=76 · 
+чанков 2458 · 64 мс
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]Loading weights: 100%|██████████| 391/391 [00:00<00:00, 9210.38it/s]
+deepvk/USER-bge-m3: nDCG@10 0.777 · hit@1 0.658 · hit@3 0.882 · n=76 · чанков 
+2569 · 65 мс
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]Loading weights: 100%|██████████| 391/391 [00:00<00:00, 71129.98it/s]
+BAAI/bge-m3: nDCG@10 0.742 · hit@1 0.605 · hit@3 0.855 · n=76 · чанков 2569 · 64
+мс
+Результаты: /Users/islam/Projects/semantic_search_task/reports/benchmarks.csv

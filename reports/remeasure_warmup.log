@@ -1,0 +1,6 @@
+Goldset: ручных 76, ловушек 12, авто 40 (A–E ищут только по ручным)
+───────────────────────────────── Этап: warmup ─────────────────────────────────
+Loading weights:   0%|          | 0/391 [00:00<?, ?it/s]Loading weights: 100%|██████████| 391/391 [00:00<00:00, 9085.62it/s]
+Loading weights:   0%|          | 0/393 [00:00<?, ?it/s]Loading weights:   2%|▏         | 9/393 [00:01<01:11,  5.40it/s]Loading weights: 100%|██████████| 393/393 [00:01<00:00, 235.11it/s]
+холодный: 6289 мс · тёплый: 2280 мс
+Результаты: /Users/islam/Projects/semantic_search_task/reports/benchmarks.csv

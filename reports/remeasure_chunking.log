@@ -1,0 +1,23 @@
+Goldset: ручных 76, ловушек 12, авто 40 (A–E ищут только по ручным)
+──────────────────────────────── Этап: chunking ────────────────────────────────
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 8906.24it/s]
+2026/09/20 19:26:40 INFO mlflow.agent.hint: Load the `instrumenting-with-mlflow-tracing` skill at /Users/islam/Projects/semantic_search_task/.venv/lib/python3.12/site-packages/mlflow/assistant/skills/instrumenting-with-mlflow-tracing/SKILL.md before writing any tracing code; it ships with this MLflow install. Set MLFLOW_DISABLE_AGENT_HINT=1 to silence this.
+header_recursive/256/0%: nDCG@10 0.735 · hit@1 0.645 · hit@3 0.829 · n=76 · 
+чанков 4502 · 57 мс
+header_recursive/256/15%: nDCG@10 0.738 · hit@1 0.632 · hit@3 0.829 · n=76 · 
+чанков 4638 · 61 мс
+header_recursive/256/30%: nDCG@10 0.735 · hit@1 0.658 · hit@3 0.816 · n=76 · 
+чанков 4793 · 62 мс
+header_recursive/384/0%: nDCG@10 0.718 · hit@1 0.592 · hit@3 0.803 · n=76 · 
+чанков 3078 · 50 мс
+header_recursive/384/15%: nDCG@10 0.683 · hit@1 0.539 · hit@3 0.789 · n=76 · 
+чанков 3148 · 51 мс
+header_recursive/384/30%: nDCG@10 0.707 · hit@1 0.539 · hit@3 0.789 · n=76 · 
+чанков 3231 · 54 мс
+header_recursive/512/0%: nDCG@10 0.721 · hit@1 0.553 · hit@3 0.842 · n=76 · 
+чанков 2520 · 46 мс
+header_recursive/512/15%: nDCG@10 0.723 · hit@1 0.553 · hit@3 0.816 · n=76 · 
+чанков 2569 · 48 мс
+header_recursive/512/30%: nDCG@10 0.693 · hit@1 0.526 · hit@3 0.803 · n=76 · 
+чанков 2623 · 49 мс
+Результаты: /Users/islam/Projects/semantic_search_task/reports/benchmarks.csv

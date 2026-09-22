@@ -1,0 +1,18 @@
+Goldset: ручных 76, ловушек 12, авто 40 (A–E ищут только по ручным)
+─────────────────────────────── Этап: ablations ────────────────────────────────
+пересобираю индекс bs_intfloat_multilingual_e5_base_fixed_512_15_markdown
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (636 > 512). Running this sequence through the model will result in indexing errors
+Loading weights:   0%|          | 0/199 [00:00<?, ?it/s]Loading weights: 100%|██████████| 199/199 [00:00<00:00, 9527.94it/s]
+fixed (без учёта заголовков) @512/15%: nDCG@10 0.721 · hit@1 0.618 · hit@3 0.776
+· n=76 · чанков 1912 · 31 мс
+пересобираю индекс bs_intfloat_multilingual_e5_base_parent_512_15_markdown
+parent-document @512/15%: nDCG@10 0.723 · hit@1 0.553 · hit@3 0.816 · n=76 · 
+чанков 2569 · 33 мс
+пересобираю индекс bs_intfloat_multilingual_e5_base_header_recursive_512_15_rows
+таблицы построчно @512/15%: nDCG@10 0.707 · hit@1 0.553 · hit@3 0.789 · n=76 · 
+чанков 2554 · 33 мс
+пересобираю индекс 
+bs_intfloat_multilingual_e5_base_header_recursive_512_15_markdown_nobc
+no breadcrumbs @512/15%: nDCG@10 0.728 · hit@1 0.553 · hit@3 0.855 · n=76 · 
+чанков 2535 · 32 мс
+Результаты: /Users/islam/Projects/semantic_search_task/reports/benchmarks.csv
